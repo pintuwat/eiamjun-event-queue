@@ -100,12 +100,29 @@ class OrderViewModel @Inject constructor(
         _state.value = _state.value.copy(cart = emptyList())
     }
 
+    /**
+     * Re-reads the number the next ticket will carry.
+     *
+     * The counter lives in SharedPreferences, outside this view model, and ตั้งค่า →
+     * เริ่มนับคิวใหม่ writes it. Read once at construction, the app bar went on announcing
+     * "คิวถัดไป 2" after a reset had put it back to 1 — the ticket printed 1 correctly, but the
+     * screen the staff read the number off, and the amount dialog that tells the customer which
+     * queue they are about to get, were both a number out.
+     */
+    fun refreshQueueNo() {
+        val next = repo.peekQueueNo()
+        if (next != _state.value.nextQueueNo) _state.value = _state.value.copy(nextQueueNo = next)
+    }
+
     /** Opens the payment dialog, with the code for this exact total already built. */
     fun askPayment() {
         val total = _state.value.total
         if (total <= 0) return
         _state.value = _state.value.copy(
             askingPayment = true,
+            // Read again here, not just on resume: this dialog states the queue number out loud
+            // to the customer, and it is the last moment before the ticket is taken.
+            nextQueueNo = repo.peekQueueNo(),
             paymentQr = EventTicketFormatter.paymentQr(
                 merchantQr = settings.merchantQr,
                 promptPayId = settings.promptPayId,

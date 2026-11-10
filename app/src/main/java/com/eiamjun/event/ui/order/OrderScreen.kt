@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eiamjun.event.data.MenuItemWithOptions
 import com.eiamjun.event.ui.components.MenuKeypad
@@ -68,6 +70,10 @@ fun OrderScreen(
     val menu by viewModel.menu.collectAsStateWithLifecycle()
     val openCount by viewModel.openCount.collectAsStateWithLifecycle()
     val outboxDepth by viewModel.outboxDepth.collectAsStateWithLifecycle()
+
+    // The queue counter lives outside this view model and ตั้งค่า can reset it, so the number is
+    // re-read whenever this screen comes back to the front rather than once when it was built.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshQueueNo() }
 
     // The dish whose options are being asked about, or null. A dish with no groups never gets here.
     var asking by remember { mutableStateOf<MenuItemWithOptions?>(null) }

@@ -119,6 +119,28 @@ called twice.
 ตั้งค่า → เริ่มนับคิวใหม่ resets by hand, behind a confirmation, because an event can run two
 sessions in one calendar day and no automatic rule could know which.
 
+⚠️ **เริ่มนับคิวใหม่ is unsafe on a day that already has orders, and that is the day it is for.**
+Found on the terminal, in the event log: `UNIQUE constraint failed: orders.day, orders.queueNo`.
+
+The local `orders` table is unique on `(day, queueNo)` and the server's on
+`(day, source, queue_no)`, so a queue number **is** part of an order's identity within a trading
+day. Resetting the counter to 1 while that day already holds #1 therefore collides: the local
+insert throws and `charge` fails, so the staff get "บันทึกออเดอร์ไม่สำเร็จ", no ticket and no sale
+— with a customer standing there. And if it had not thrown locally, `recordOrder` replaces on
+conflict, so the morning's order would have been **overwritten** on the server instead.
+
+Both outcomes land exactly on the two-sessions-in-one-day case the button advertises.
+
+Until it is fixed: **only press it when the day has no orders yet.** Across a real day boundary
+it is unnecessary anyway — numbering restarts on its own at 07:00.
+
+The fix is to make a reset start a numbering *session* that is part of the identity on both
+sides: a `session` ordinal on the counter, a column on `orders` here (migration) and on the
+server, with the unique indexes becoming `(day, session, queueNo)` and
+`(day, source, session, queue_no)`. Anything cheaper either loses the morning's orders or loses
+the button.
+
+
 ---
 
 ## The outbox

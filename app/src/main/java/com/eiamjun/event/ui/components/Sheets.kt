@@ -18,6 +18,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -206,6 +211,34 @@ fun OrderDetailSheet(
     onCancel: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    var confirmingCancel by remember { mutableStateOf(false) }
+
+    if (confirmingCancel) {
+        AlertDialog(
+            onDismissRequest = { confirmingCancel = false },
+            title = { Text("ยกเลิกคิว ${order.order.queueNo}?") },
+            text = {
+                Text(
+                    "ออเดอร์นี้รับเงินไปแล้ว ${order.order.total}.- — ยกเลิกแล้วจะหายจากจอครัว " +
+                        "และไม่ถูกนับในยอดวันนี้ ย้อนกลับไม่ได้"
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        confirmingCancel = false
+                        onCancel()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Alert),
+                    modifier = Modifier.heightIn(min = 56.dp)
+                ) { Text("ยกเลิกออเดอร์", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmingCancel = false }) { Text("ไม่ใช่ตอนนี้") }
+            }
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -255,8 +288,13 @@ fun OrderDetailSheet(
                         modifier = Modifier.weight(1f).heightIn(min = 52.dp)
                     ) { Text("พิมพ์บัตรซ้ำ") }
                 }
+                // Behind a confirmation that names the queue and the money. It voids an order
+                // that has already been paid for, it sits a finger's width from พิมพ์ใบเสร็จ on
+                // a screen tapped at speed with a customer waiting, and there is no undo — the
+                // only way back is ringing the order up again under a new number, which is not
+                // the number on the ticket in the customer's hand.
                 TextButton(
-                    onClick = onCancel,
+                    onClick = { confirmingCancel = true },
                     colors = ButtonDefaults.textButtonColors(contentColor = Alert),
                     modifier = Modifier.padding(top = 4.dp)
                 ) { Text("ยกเลิกออเดอร์นี้") }
