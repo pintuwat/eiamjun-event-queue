@@ -98,7 +98,10 @@ export const server = http.createServer(async (req, res) => {
         name: 'ครัวอีเวนต์เอี้ยมจุ๊น',
         day: businessDay(),
         timezone: SHOP_TIMEZONE,
-        dayStartsAt: DAY_STARTS_AT
+        dayStartsAt: DAY_STARTS_AT,
+        // Open on purpose, like the rest of this endpoint: it says what the deployment can do,
+        // never what is in it. It is how a redeploy is confirmed from outside without a password.
+        features: db.features()
       });
     }
     if (req.method === 'POST' && url.pathname === '/api/orders') return await handleOrder(req, res);

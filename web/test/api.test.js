@@ -326,3 +326,18 @@ test('an order pushed with no round is the first one, and its old outbox message
   const board = await (await asTill(`/api/orders?day=${day}`)).json();
   assert.equal(board.orders.length, 0);
 });
+
+test('the healthcheck says what this deployment can do, with no credentials', async () => {
+  // The one way to confirm a redeploy from outside: the page and every read endpoint are behind
+  // auth, so a server running last week's code looks identical to one running this week's. Read
+  // off the live schema rather than a hand-bumped string, which is only true until somebody
+  // forgets to bump it.
+  const res = await call('/api/health');
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.ok(Array.isArray(body.features));
+  assert.ok(
+    body.features.includes('queue-rounds'),
+    'a server with orders.session says so, and one without must not'
+  );
+});

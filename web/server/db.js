@@ -368,6 +368,27 @@ function api(db) {
     },
 
     /**
+     * What this deployment can actually do, read off the live schema.
+     *
+     * "Did the redeploy land?" has no answer otherwise: the page and every read endpoint are
+     * behind auth, so from outside, a server running last week's code is indistinguishable from
+     * one running this week's. A hand-bumped version string would answer it too, right up to the
+     * day somebody forgets to bump it — this is read from the database itself, so it reports the
+     * capability rather than a label, and it cannot drift from the truth.
+     *
+     * Named capabilities, not column names: this rides on the open healthcheck, and what belongs
+     * there is "the queue-round fix is live", not a map of the schema.
+     */
+    features() {
+      const columns = db.prepare('PRAGMA table_info(orders)').all().map((c) => c.name);
+      const features = [];
+      // The reset-opens-a-round fix. Without the column, the server still replaces on
+      // `(day, source, queue_no)` and a reset mid-day overwrites a paid order.
+      if (columns.includes('session')) features.push('queue-rounds');
+      return features;
+    },
+
+    /**
      * The key that signs session cookies, kept in the database rather than in an env var so a
      * redeploy does not sign the shop out. SESSION_SECRET overrides it for anyone who would rather
      * hold it outside.

@@ -207,6 +207,13 @@ password box, and a page opened from the iPad's home screen has its own credenti
 came back on every launch. The icons and `/api/health` are open (`OPEN_PATHS`), because iOS fetches
 a home-screen icon in a request carrying no session and Coolify's probe carries no credentials.
 
+**`/api/health` names what the deployment can do** (`features`, from `db.features()`), and it is
+open like the rest of that endpoint. It exists because "did the redeploy land?" had no answer from
+outside: the page and every read endpoint are behind auth, so last week's code and this week's look
+identical. Read off the live schema rather than a hand-bumped version string — a label is true only
+until somebody forgets to bump it, and this reports the capability itself. Named capabilities, not
+column names: the healthcheck says what the server can do, never what is in it.
+
 **A status call for an order the server has never seen answers `200 {changed:false}`, not 404.** The
 till may mark something collected while its own order push is still in the outbox, and a 404 would
 make that outbox retry forever.
