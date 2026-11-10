@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose (ui/theme/Theme.kt) owns every real colour and type decision; this only gives the
+         window a sane background before Compose takes over, so the launch isn't a black flash. -->
+    <style name="Theme.EiamJunEvent" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:statusBarColor">#241712</item>
+    </style>
+</resources>

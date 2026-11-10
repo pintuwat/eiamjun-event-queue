@@ -1,0 +1,14 @@
+{
+  "name": "eiamjun-event-kitchen",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Kitchen board for the event till: orders with queue numbers, tapped พร้อมส่ง on an iPad.",
+  "scripts": {
+    "start": "node server/index.js",
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  }
+}

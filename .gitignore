@@ -1,0 +1,10 @@
+# Android / Gradle
+.gradle/
+build/
+local.properties
+keystore.properties
+*.jks
+
+# The event's own takings, not code.
+web/data/
+node_modules/

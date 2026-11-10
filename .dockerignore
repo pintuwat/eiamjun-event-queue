@@ -1,0 +1,26 @@
+# The image is the kitchen board and nothing else. The Android app and its build output are by far
+# the largest part of this repository and would otherwise be uploaded to the daemon on every deploy.
+.git
+.gitignore
+.idea
+.gradle
+.claude
+app
+gradle
+gradlew
+gradlew.bat
+build.gradle.kts
+settings.gradle.kts
+gradle.properties
+local.properties
+keystore.properties*
+*.jks
+*.keystore
+*.apk
+
+# The event's real order book. Never belongs in an image.
+web/data
+
+# Not needed at runtime
+web/test
+**/*.md

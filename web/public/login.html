@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/app.css" />
+  <title>เข้าสู่ระบบ — ครัวอีเวนต์</title>
+</head>
+<body class="centered">
+  <form id="form" class="login">
+    <h1>ครัวอีเวนต์</h1>
+    <label>ชื่อผู้ใช้<input name="user" autocomplete="username" autocapitalize="off" /></label>
+    <label>รหัสผ่าน<input name="password" type="password" autocomplete="current-password" /></label>
+    <button type="submit">เข้าสู่ระบบ</button>
+    <p id="error" class="error"></p>
+  </form>
+  <script type="module">
+    const form = document.getElementById('form');
+    const error = document.getElementById('error');
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      error.textContent = '';
+      const data = new FormData(form);
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ user: data.get('user'), password: data.get('password') })
+      });
+      const body = await res.json().catch(() => ({}));
+      if (res.ok && body.ok) {
+        location.href = '/';
+      } else {
+        error.textContent = body.error || 'เข้าสู่ระบบไม่สำเร็จ';
+      }
+    });
+  </script>
+</body>
+</html>

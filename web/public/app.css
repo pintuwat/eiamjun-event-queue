@@ -1,0 +1,271 @@
+/*
+ * The kitchen board, drawn for one place: an iPad on a stand in a food stall, read from a metre
+ * away by somebody with their hands full. Every size here is larger than a web page's would be,
+ * and that is the requirement rather than a preference — the same call the shop's own screens made.
+ */
+:root {
+  --wood: #241712;
+  --wood2: #34231a;
+  --paper: #fbf6ea;
+  --paper-dim: #f1e9d6;
+  --ink: #2a2018;
+  --ink-dim: #6b5b48;
+  --gold: #d9a544;
+  --basil: #4c7a4a;
+  --basil-soft: #e4efe3;
+  --alert: #b23a2b;
+  --price: #c2410c;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, "Sarabun", "Helvetica Neue", sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  /* The page itself never scrolls; each column does. A board that scrolls as a whole loses its
+     headings exactly when there are enough orders to need them. */
+  height: 100dvh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  -webkit-text-size-adjust: 100%;
+}
+
+.bar {
+  background: var(--wood);
+  color: var(--gold);
+  padding: calc(10px + var(--safe-top)) 18px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.bar h1 {
+  margin: 0;
+  font-size: 26px;
+}
+
+.bar-left, .bar-right {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+}
+
+.muted { color: #c7b393; font-size: 17px; }
+.counts { font-size: 19px; }
+
+.link-state {
+  font-size: 17px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: #4a3327;
+}
+/* Said in words, not only as a colour: "the board cannot reach the server" looks exactly like
+   "the kitchen has nothing to cook" if it is only a dot. */
+.link-state.down { background: var(--alert); color: #fff; }
+.link-state.up { background: #2f4a2e; color: #d6e8d4; }
+
+.board {
+  flex: 1 1 auto;
+  display: grid;
+  /* Two thirds to the queue being cooked. The ready column is a holding area — it is read, not
+     worked from. Stacks on a narrow screen, since a phone is the fallback if the iPad dies. */
+  grid-template-columns: 1.6fr 1fr;
+  gap: 14px;
+  padding: 14px;
+  min-height: 0;
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--paper-dim);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.column.ready { background: var(--basil-soft); }
+
+.column h2 {
+  margin: 0 0 10px;
+  font-size: 22px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tally {
+  background: var(--wood);
+  color: var(--gold);
+  border-radius: 999px;
+  padding: 2px 12px;
+  font-size: 19px;
+}
+
+/* The scrolling child, with its own padding for the home indicator. The shop's floor screen
+   shipped without this pair on exactly one view and the bottom of it was simply unreachable. */
+.cards {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: calc(16px + var(--safe-bottom));
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+  align-content: start;
+}
+
+.card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 14px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.card.ready { background: #f4faf3; }
+
+/* Waited a long time. Not red — red on this board means a note the cook must not miss — so the
+   edge is gold, which reads as "look at this one next" without competing with it. */
+.card.late { box-shadow: 0 0 0 3px var(--gold), 0 1px 3px rgba(0, 0, 0, 0.12); }
+
+.card-top {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.queue {
+  font-size: 52px;
+  font-weight: 700;
+  color: var(--price);
+  line-height: 1;
+}
+
+.card.ready .queue { color: var(--basil); }
+
+.waited { font-size: 17px; color: var(--ink-dim); margin-left: auto; text-align: right; }
+.waited.late { color: var(--price); font-weight: 700; }
+
+.lines { display: flex; flex-direction: column; gap: 6px; }
+
+.line { display: flex; gap: 10px; align-items: baseline; }
+
+.line-qty {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--price);
+  min-width: 34px;
+}
+
+.line-body { flex: 1 1 auto; }
+.line-name { font-size: 21px; font-weight: 600; }
+.line-options { font-size: 19px; color: var(--ink-dim); }
+/* A note is the one thing on the card that changes what goes in the bowl, so it is the one thing
+   allowed to be loud. */
+.line-note { font-size: 19px; color: var(--alert); font-weight: 700; }
+
+.card button {
+  font: inherit;
+  font-size: 21px;
+  font-weight: 700;
+  /* 60px, not 44: this is pressed with a wet hand, at speed, while holding a ladle. */
+  min-height: 60px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--basil);
+  color: #fff;
+  cursor: pointer;
+}
+
+.card button.undo {
+  background: transparent;
+  color: var(--ink-dim);
+  border: 1px solid #d8c9ab;
+  min-height: 52px;
+  font-size: 19px;
+}
+
+.card button:disabled { opacity: 0.5; }
+
+.empty { color: var(--ink-dim); font-size: 19px; padding: 10px; }
+
+/*
+ * Narrow — a phone, which is the fallback if the iPad dies mid-service.
+ *
+ * The columns stack, and the **board** becomes the scroller instead of each column. Two scrollers
+ * stacked in one screen's height gives each about a card and a half, with its own scrollbar: the
+ * board looks like it holds two orders when it holds eight. One scroller down the whole page is
+ * how a phone reads anyway.
+ */
+@media (max-width: 760px) {
+  .board {
+    grid-template-columns: 1fr;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: calc(14px + var(--safe-bottom));
+  }
+
+  .column { min-height: auto; }
+
+  .cards {
+    overflow-y: visible;
+    padding-bottom: 0;
+  }
+}
+
+
+/* ---- login ---- */
+body.centered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.login {
+  background: #fff;
+  padding: 26px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 300px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+}
+
+.login h1 { margin: 0; font-size: 24px; }
+.login label { display: flex; flex-direction: column; gap: 6px; font-size: 17px; }
+
+.login input {
+  font: inherit;
+  font-size: 19px;
+  padding: 12px;
+  border: 1px solid #d8c9ab;
+  border-radius: 10px;
+}
+
+.login button {
+  font: inherit;
+  font-size: 19px;
+  font-weight: 700;
+  min-height: 56px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--wood);
+  color: var(--gold);
+}
+
+.error { color: var(--alert); margin: 0; min-height: 1.2em; }

@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <!-- `viewport-fit=cover` plus the safe-area insets in app.css: an iPad in a stand still has a
+       home indicator, and a button under it is a button nobody can press. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ครัวอีเวนต์" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/app.css" />
+  <title>ครัวอีเวนต์ เอี้ยมจุ๊น</title>
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-left">
+      <h1>ครัว</h1>
+      <span id="day" class="muted"></span>
+    </div>
+    <div class="bar-right">
+      <span id="counts" class="counts"></span>
+      <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
+    </div>
+  </header>
+
+  <main class="board">
+    <section class="column" id="column-waiting">
+      <h2>กำลังทำ <span class="tally" id="tally-waiting">0</span></h2>
+      <div class="cards" id="cards-waiting"></div>
+    </section>
+    <section class="column ready" id="column-ready">
+      <h2>พร้อมส่ง <span class="tally" id="tally-ready">0</span></h2>
+      <div class="cards" id="cards-ready"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

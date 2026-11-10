@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The kitchen server is reached over plain HTTP while testing on an event's wifi, so cleartext has
+  to be allowed. Android blocks it by default from targetSdk 28 on any device, and without this the
+  push would fail with a CLEARTEXT error that looks exactly like the server being down.
+
+  Permitted for everything rather than one host because the address is a setting: it points at a
+  Coolify URL at the event and at a laptop while testing, and a pinned host list would quietly
+  break the second case. Flip it to false once the server has a certificate.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>
