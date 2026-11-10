@@ -76,9 +76,20 @@ and **mount a persistent volume at `/data`**. Without the volume a redeploy repl
 and takes the order book with it; the app recreates an empty one, so nothing errors and a service
 would simply start with every outstanding queue number gone.
 
-Set `AUTH_USER` and `AUTH_PASSWORD` the moment it is reachable from the internet — which on Coolify
-it is by default. Without them anyone with the URL can read the orders *and post fabricated ones
-onto the board*, and a kitchen cooking food nobody paid for costs real money.
+Set `AUTH_USER` and `AUTH_PASSWORD`. On Coolify this is reachable from the internet by default,
+and without them anyone with the URL can read the orders *and post fabricated ones onto the
+board* — a kitchen cooking food nobody paid for costs real money.
+
+Then point the terminal at the **https** URL in ตั้งค่า → ที่อยู่เซิร์ฟเวอร์. The terminal sends its
+password as a Basic header on every request; over plain http that is in the clear on whatever
+network the stall is using. The session cookie the iPad gets follows the same rule on its own —
+`Secure` when the request arrived over TLS, plain when it did not, so the one build works behind
+Coolify's proxy and on a laptop at the stall.
+
+Three files make up the order book — `event.db`, `event.db-wal` and `event.db-shm` — and they live
+beside each other, so the volume has to be mounted at the **directory** (`/data`), never at the
+`.db` file. The `-wal` is routinely the largest of the three; a backup that copies only the `.db`
+copies a database missing its most recent writes.
 
 ---
 

@@ -117,6 +117,37 @@ test('logging in gets a cookie that the board can then use instead of Basic', as
   assert.equal(board.status, 200);
 });
 
+test('behind a TLS proxy the session cookie is Secure; on a bare LAN it is not', async () => {
+  // Both deployments are real. Coolify terminates the certificate at its proxy and forwards
+  // x-forwarded-proto; a laptop serving the stall's own wifi has no certificate, and a Secure
+  // cookie there is simply never sent back — which locks the iPad out of a board that looks
+  // like it is working.
+  const behindProxy = await call('/api/login', {
+    method: 'POST',
+    body: { user: 'stall', password: 'secret' },
+    headers: { 'x-forwarded-proto': 'https' }
+  });
+  assert.match(behindProxy.headers.get('set-cookie'), /;\s*Secure/);
+
+  const onLan = await call('/api/login', {
+    method: 'POST',
+    body: { user: 'stall', password: 'secret' }
+  });
+  assert.doesNotMatch(onLan.headers.get('set-cookie'), /;\s*Secure/);
+});
+
+test('logging out clears the cookie with the attributes it was set with', async () => {
+  // A browser matches a deletion against the attributes it was given, so a Secure cookie cleared
+  // without the flag can survive the logout.
+  const out = await call('/api/logout', {
+    method: 'POST',
+    headers: { 'x-forwarded-proto': 'https' }
+  });
+  const cookie = out.headers.get('set-cookie');
+  assert.match(cookie, /Max-Age=0/);
+  assert.match(cookie, /;\s*Secure/);
+});
+
 test('the till posts an order and the board can read it back', async () => {
   const posted = await asTill('/api/orders', { method: 'POST', body: order(1) });
   assert.equal(posted.status, 200);

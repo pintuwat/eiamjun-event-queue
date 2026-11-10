@@ -75,7 +75,7 @@ export const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
 
     if (req.method === 'POST' && url.pathname === '/api/login') return await handleLogin(req, res);
-    if (req.method === 'POST' && url.pathname === '/api/logout') return handleLogout(res);
+    if (req.method === 'POST' && url.pathname === '/api/logout') return handleLogout(req, res);
 
     if (AUTH_REQUIRED && !OPEN_PATHS.has(url.pathname) && !isAuthorized(req)) {
       // Deliberately **no** `WWW-Authenticate`. That header is what makes Safari put up its own
@@ -238,8 +238,10 @@ function dayFrom(url) {
  * The cookie carries nothing but the user and an expiry. Nothing is stored server-side: there is
  * one stall and one password, so a session table would be one row to clean up.
  *
- * `Secure` is deliberately absent — this is reached over plain HTTP at a stall, and a Secure
- * cookie would simply never be sent. The day it has a certificate, add it.
+ * `Secure` is set **only when the request arrived over HTTPS**, never unconditionally. Both
+ * deployments are real: behind Coolify's proxy there is a certificate and the flag belongs there,
+ * while a laptop serving the stall's own wifi has none — and a Secure cookie on plain HTTP is
+ * simply never sent back, which locks the iPad out of a board that looks like it is working.
  */
 const SESSION_COOKIE = 'eiamjun_event_session';
 const SESSION_DAYS = 90;
@@ -270,22 +272,45 @@ function readSession(req) {
   }
 }
 
-function setSessionCookie(res, user) {
+function setSessionCookie(res, user, req) {
   const expiresAt = Date.now() + SESSION_DAYS * 86400_000;
-  res.setHeader('set-cookie', [
-    `${SESSION_COOKIE}=${makeSession(user, expiresAt)}`,
-    'Path=/',
-    'HttpOnly',
-    'SameSite=Lax',
+  res.setHeader('set-cookie', cookieParts(`${SESSION_COOKIE}=${makeSession(user, expiresAt)}`, req, [
     `Max-Age=${SESSION_DAYS * 86400}`
-  ].join('; '));
+  ]));
+}
+
+/**
+ * The cookie's attributes, in one place so setting it and clearing it cannot disagree.
+ *
+ * A browser matches a deletion against the attributes it was given, so a Secure cookie cleared
+ * without the flag can survive the logout — which is the quiet half of this that is easy to miss.
+ */
+function cookieParts(assignment, req, extra = []) {
+  const parts = [assignment, 'Path=/', 'HttpOnly', 'SameSite=Lax', ...extra];
+  if (isHttps(req)) parts.push('Secure');
+  return parts.join('; ');
+}
+
+/**
+ * Whether this request reached us over TLS.
+ *
+ * Coolify terminates the certificate at its proxy and forwards `x-forwarded-proto`; nothing in
+ * front of the server on a stall's LAN sets it. Trusting the header from a client is safe here
+ * because the only thing it can do is make the cookie **more** restrictive — a forged "https"
+ * costs the forger their own session and nobody else anything.
+ */
+function isHttps(req) {
+  const forwarded = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  return forwarded === 'https' || Boolean(req.socket && req.socket.encrypted);
 }
 
 /** Renewed lazily: a cookie past its half-life is refreshed, so a board used daily never expires. */
 function renewSessionIfStale(req, res) {
   const session = readSession(req);
   if (!session) return;
-  if (session.exp < Date.now() + (SESSION_DAYS * 86400_000) / 2) setSessionCookie(res, session.u);
+  if (session.exp < Date.now() + (SESSION_DAYS * 86400_000) / 2) {
+    setSessionCookie(res, session.u, req);
+  }
 }
 
 function parseCookies(req) {
@@ -327,12 +352,12 @@ async function handleLogin(req, res) {
   if (!timingSafeEqual(user, AUTH_USER) || !timingSafeEqual(password, AUTH_PASSWORD)) {
     return json(res, 401, { ok: false, error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
   }
-  setSessionCookie(res, user);
+  setSessionCookie(res, user, req);
   return json(res, 200, { ok: true });
 }
 
-function handleLogout(res) {
-  res.setHeader('set-cookie', `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+function handleLogout(req, res) {
+  res.setHeader('set-cookie', cookieParts(`${SESSION_COOKIE}=`, req, ['Max-Age=0']));
   return json(res, 200, { ok: true });
 }
 
