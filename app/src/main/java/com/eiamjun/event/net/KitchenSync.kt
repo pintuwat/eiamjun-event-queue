@@ -6,6 +6,7 @@ import com.eiamjun.event.data.EventDay
 import com.eiamjun.event.data.EventLog
 import com.eiamjun.event.data.OrderRepository
 import com.eiamjun.event.data.OutboxKind
+import com.eiamjun.event.data.QueueKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
@@ -105,9 +106,23 @@ class KitchenSync @Inject constructor(
             // the caller leaves the till's picture alone.
             val array = payload.optJSONArray("ready")
                 ?: throw ServerClient.ServerError(200, "เซิร์ฟเวอร์ตอบไม่ครบ")
-            val queueNos = (0 until array.length()).map { array.getInt(it) }
-            orders.applyReadySet(day, queueNos)
-            queueNos.size
+            val ready = (0 until array.length()).map { i ->
+                // `{session, queueNo}` is what this server sends. A bare number is what one that
+                // predates the column sends, and it can only mean the first round — the shim is
+                // for the minutes between deploying the server and installing the terminal, and a
+                // null round matches by number alone rather than guessing.
+                val entry = array.optJSONObject(i)
+                if (entry != null) {
+                    QueueKey(
+                        session = entry.optInt("session").takeIf { it > 0 },
+                        queueNo = entry.optInt("queueNo")
+                    )
+                } else {
+                    QueueKey(session = null, queueNo = array.getInt(i))
+                }
+            }
+            orders.applyReadySet(day, ready)
+            ready.size
         }
     }
 

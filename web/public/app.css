@@ -156,6 +156,20 @@ body {
 
 .card.ready .queue { color: var(--basil); }
 
+/*
+ * Drawn only after เริ่มนับคิวใหม่, when the board can hold two cards reading the same number. It
+ * sits against the number rather than beside the wait, because what it qualifies is the number.
+ */
+.round {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-dim);
+  padding: 2px 8px;
+  border: 1px solid var(--paper-dim);
+  background: var(--paper-dim);
+  border-radius: 999px;
+}
+
 .waited { font-size: 17px; color: var(--ink-dim); margin-left: auto; text-align: right; }
 .waited.late { color: var(--price); font-weight: 700; }
 

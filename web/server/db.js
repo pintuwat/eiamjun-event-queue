@@ -61,6 +61,9 @@ CREATE TABLE IF NOT EXISTS orders (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
   day         TEXT    NOT NULL,
   queue_no    INTEGER NOT NULL,
+  -- Which numbering round within the day. เริ่มนับคิวใหม่ on the terminal starts the numbers
+  -- again, so one day can hold two #1s and the number alone is not an identity.
+  session     INTEGER NOT NULL DEFAULT 1,
   source      TEXT    NOT NULL,
   total       INTEGER NOT NULL,
   payment     TEXT    NOT NULL DEFAULT 'qr',
@@ -71,12 +74,17 @@ CREATE TABLE IF NOT EXISTS orders (
   picked_at   INTEGER
 );
 
--- The terminal issues the queue number, so this triple is what identifies an order and what makes
--- a retry from its outbox idempotent: the same push lands on the same row rather than creating a
--- second card for one customer. With two terminals each numbering from 1, "14 · POS-2" is the
--- identity — which is why the source is in the key.
+-- The terminal issues the queue number, so this is what identifies an order and what makes a retry
+-- from its outbox idempotent: the same push lands on the same row rather than creating a second
+-- card for one customer. With two terminals each numbering from 1, "14 · POS-2" is the identity —
+-- which is why the source is in the key.
+--
+-- The round is in it because a terminal can be told to start counting from 1 again mid-day. Before
+-- it was, the afternoon's first push matched the morning's #1 and the replace below **overwrote a
+-- paid order** — the quiet half of a bug whose loud half was the terminal refusing to record the
+-- sale at all.
 CREATE UNIQUE INDEX IF NOT EXISTS orders_identity
-  ON orders (day, source, queue_no);
+  ON orders (day, source, session, queue_no);
 
 CREATE INDEX IF NOT EXISTS orders_day_status ON orders (day, status);
 
@@ -120,6 +128,43 @@ function migrate(db) {
   if (!columns.includes('payment')) {
     db.exec("ALTER TABLE orders ADD COLUMN payment TEXT NOT NULL DEFAULT 'qr'");
   }
+  if (!columns.includes('session')) {
+    db.exec('ALTER TABLE orders ADD COLUMN session INTEGER NOT NULL DEFAULT 1');
+  }
+
+  // The identity index is the one thing here that is *not* purely additive, so it is rebuilt only
+  // when it is still the old shape. Everything already recorded is round 1 by the default above, so
+  // widening the key cannot collide: it only separates rows that the old key would have merged.
+  const identity = db.prepare('PRAGMA index_info(orders_identity)').all();
+  if (identity.length && !identity.some((c) => c.name === 'session')) {
+    db.exec('DROP INDEX orders_identity');
+    db.exec('CREATE UNIQUE INDEX orders_identity ON orders (day, source, session, queue_no)');
+  }
+}
+
+/**
+ * The numbering round a message is about, defaulting to the first.
+ *
+ * `undefined` is a terminal that predates the column — or an outbox row it built before the update
+ * — and everything such a terminal ever issued belongs to round 1, so that is what it means. It is
+ * **not** the same as "any round": see [matchSession].
+ */
+function sessionOf(value) {
+  const session = Number(value);
+  return Number.isInteger(session) && session >= 1 ? session : 1;
+}
+
+/**
+ * How a status message finds its order when it carries no round.
+ *
+ * A pushed *order* always names its round — it is being written, so it has to. A ready/collected/
+ * cancelled message may not, because it could have been sitting in an old build's outbox since
+ * before the column existed. Rather than guess at round 1 and silently miss, such a message
+ * matches the number in **any** round: on every day but a reset day there is only one, and on a
+ * reset day a stale message about a collected bag is less harmful than one that does nothing.
+ */
+function matchSession(value) {
+  return value === undefined || value === null || value === '' ? null : sessionOf(value);
 }
 
 function api(db) {
@@ -141,6 +186,7 @@ function api(db) {
       const source = String(payload.source || 'pos').trim() || 'pos';
       const queueNo = Number(payload.queueNo);
       if (!Number.isInteger(queueNo) || queueNo < 1) throw new Error('เลขคิวไม่ถูกต้อง');
+      const session = sessionOf(payload.session);
 
       const orderedAt = orderTime(payload.orderedAt, arrivedAt);
       // The terminal's own day wins, for the same reason it stamps the time: it knew which trading
@@ -157,8 +203,10 @@ function api(db) {
       db.exec('BEGIN IMMEDIATE');
       try {
         const existing = db
-          .prepare('SELECT id FROM orders WHERE day = ? AND source = ? AND queue_no = ?')
-          .get(day, source, queueNo);
+          .prepare(
+            'SELECT id FROM orders WHERE day = ? AND source = ? AND session = ? AND queue_no = ?'
+          )
+          .get(day, source, session, queueNo);
 
         let orderId;
         if (existing) {
@@ -170,10 +218,19 @@ function api(db) {
         } else {
           const result = db
             .prepare(
-              `INSERT INTO orders (day, queue_no, source, total, payment, status, ordered_at, received_at)
-               VALUES (?, ?, ?, ?, ?, 'waiting', ?, ?)`
+              `INSERT INTO orders (day, queue_no, session, source, total, payment, status, ordered_at, received_at)
+               VALUES (?, ?, ?, ?, ?, ?, 'waiting', ?, ?)`
             )
-            .run(day, queueNo, source, total, String(payload.payment || 'qr'), orderedAt, arrivedAt);
+            .run(
+              day,
+              queueNo,
+              session,
+              source,
+              total,
+              String(payload.payment || 'qr'),
+              orderedAt,
+              arrivedAt
+            );
           orderId = Number(result.lastInsertRowid);
         }
 
@@ -192,7 +249,7 @@ function api(db) {
           );
         }
         db.exec('COMMIT');
-        return { day, queueNo, source, orderId, replaced: Boolean(existing) };
+        return { day, queueNo, session, source, orderId, replaced: Boolean(existing) };
       } catch (err) {
         db.exec('ROLLBACK');
         throw err;
@@ -209,35 +266,42 @@ function api(db) {
      * A collected order is left alone — a stale tap must not pull a card the staff have already
      * handed over back onto the board.
      */
-    setReady(day, queueNo, source, ready) {
+    setReady(day, queueNo, source, ready, session) {
+      const round = matchSession(session);
       const now = Date.now();
       const result = db
         .prepare(
           `UPDATE orders
               SET status = ?, ready_at = ?
             WHERE day = ? AND queue_no = ? AND source = ?
+              AND (? IS NULL OR session = ?)
               AND status IN ('waiting', 'ready')`
         )
-        .run(ready ? 'ready' : 'waiting', ready ? now : null, day, queueNo, source);
+        .run(ready ? 'ready' : 'waiting', ready ? now : null, day, queueNo, source, round, round);
       return result.changes > 0;
     },
 
-    markPicked(day, queueNo, source) {
+    markPicked(day, queueNo, source, session) {
+      const round = matchSession(session);
       const result = db
         .prepare(
           `UPDATE orders SET status = 'picked', picked_at = ?
-            WHERE day = ? AND queue_no = ? AND source = ? AND status != 'cancelled'`
+            WHERE day = ? AND queue_no = ? AND source = ?
+              AND (? IS NULL OR session = ?)
+              AND status != 'cancelled'`
         )
-        .run(Date.now(), day, queueNo, source);
+        .run(Date.now(), day, queueNo, source, round, round);
       return result.changes > 0;
     },
 
-    markCancelled(day, queueNo, source) {
+    markCancelled(day, queueNo, source, session) {
+      const round = matchSession(session);
       const result = db
         .prepare(
-          `UPDATE orders SET status = 'cancelled' WHERE day = ? AND queue_no = ? AND source = ?`
+          `UPDATE orders SET status = 'cancelled'
+            WHERE day = ? AND queue_no = ? AND source = ? AND (? IS NULL OR session = ?)`
         )
-        .run(day, queueNo, source);
+        .run(day, queueNo, source, round, round);
       return result.changes > 0;
     },
 
@@ -247,7 +311,7 @@ function api(db) {
         .prepare(
           `SELECT * FROM orders
             WHERE day = ? AND status IN ('waiting', 'ready')
-            ORDER BY queue_no`
+            ORDER BY session, queue_no`
         )
         .all(day);
       return orders.map((order) => ({ ...order, lines: this.linesFor(order.id) }));
@@ -259,15 +323,20 @@ function api(db) {
      * The terminal polls this and takes it **as the whole truth** for its waiting and ready
      * orders, which is what makes the board's undo work: a number taken off this list goes back to
      * กำลังทำ on the till too.
+     *
+     * Each entry is `{session, queueNo}`, not a bare number: after เริ่มนับคิวใหม่ one day holds
+     * two #3s, and a list of numbers alone would have the till mark whichever it found first.
+     * Every round of the day is in here, since a reset does not hand over food already cooking.
      */
     readyQueueNos(day, source) {
       return db
         .prepare(
-          `SELECT queue_no FROM orders WHERE day = ? AND source = ? AND status = 'ready'
-            ORDER BY queue_no`
+          `SELECT session, queue_no FROM orders
+            WHERE day = ? AND source = ? AND status = 'ready'
+            ORDER BY session, queue_no`
         )
         .all(day, source)
-        .map((row) => row.queue_no);
+        .map((row) => ({ session: row.session, queueNo: row.queue_no }));
     },
 
     linesFor(orderId) {

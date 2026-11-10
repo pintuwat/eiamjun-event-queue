@@ -58,8 +58,28 @@ interface MenuDao {
     suspend fun setActive(itemId: Long, active: Boolean)
 }
 
-/** The pair that identifies an open order on both sides — see [OrderDao.openIdentities]. */
-data class OrderIdentity(val id: Long, val queueNo: Int)
+/**
+ * What identifies an open order on both sides — see [OrderDao.openIdentities].
+ *
+ * The queue number needs its [session] beside it: เริ่มนับคิวใหม่ means one day can hold two #1s,
+ * and reconciling the kitchen's ready list by number alone would mark the wrong one.
+ */
+data class OrderIdentity(val id: Long, val session: Int, val queueNo: Int) {
+    val key: QueueKey get() = QueueKey(session, queueNo)
+}
+
+/**
+ * A ticket as the kitchen names it back to us: a round and a number, with no local row id.
+ *
+ * [session] is nullable because a server that predates the column cannot say which round it meant
+ * — everything it holds is the first one — and `null` matches by number alone. That is only for
+ * the minutes between deploying the server and installing the terminal; both halves of this app
+ * send a real round.
+ */
+data class QueueKey(val session: Int?, val queueNo: Int) {
+    fun matches(identity: OrderIdentity): Boolean =
+        queueNo == identity.queueNo && (session == null || session == identity.session)
+}
 
 /** An order and its lines — what the kitchen push and the receipt are both built from. */
 data class OrderWithLines(
@@ -81,16 +101,18 @@ interface OrderDao {
      *
      * Ordered by [OrderEntity.queueNo] rather than by time because the number is what the staff
      * and the customer are both holding — a list that disagrees with the numbers on the tickets
-     * is a list nobody can use at a counter.
+     * is a list nobody can use at a counter. The round comes first in the sort, so after a reset
+     * the morning's leftovers stay above the afternoon instead of interleaving with it.
      */
     @Transaction
     @Query(
-        "SELECT * FROM orders WHERE day = :day AND status IN ('waiting', 'ready') ORDER BY queueNo"
+        "SELECT * FROM orders WHERE day = :day AND status IN ('waiting', 'ready') " +
+            "ORDER BY session, queueNo"
     )
     fun observeOpen(day: String): Flow<List<OrderWithLines>>
 
     @Transaction
-    @Query("SELECT * FROM orders WHERE day = :day ORDER BY queueNo DESC")
+    @Query("SELECT * FROM orders WHERE day = :day ORDER BY session DESC, queueNo DESC")
     fun observeDay(day: String): Flow<List<OrderWithLines>>
 
     @Transaction
@@ -99,9 +121,15 @@ interface OrderDao {
 
     /**
      * Just enough of each open order to reconcile it against the kitchen's ready list: the local
-     * id to write to, and the queue number the two sides agree on.
+     * id to write to, and the round and number the two sides agree on.
+     *
+     * Deliberately **every** open order of the day, not only the current round's. A reset does not
+     * hand over the food that was already cooking, so an order from the morning session can still
+     * be waiting when the afternoon's numbering starts — and the kitchen can still mark it ready.
      */
-    @Query("SELECT id, queueNo FROM orders WHERE day = :day AND status IN ('waiting', 'ready')")
+    @Query(
+        "SELECT id, session, queueNo FROM orders WHERE day = :day AND status IN ('waiting', 'ready')"
+    )
     suspend fun openIdentities(day: String): List<OrderIdentity>
 
     /**

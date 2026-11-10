@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import com.eiamjun.event.data.EventDay
 import com.eiamjun.event.data.OrderLineEntity
 import com.eiamjun.event.data.OrderStatus
+import com.eiamjun.event.data.QueueNumbering
 import com.eiamjun.event.data.OrderWithLines
 import com.eiamjun.event.data.Payment
 import com.eiamjun.event.printer.ScreenQr
@@ -216,7 +217,13 @@ fun OrderDetailSheet(
     if (confirmingCancel) {
         AlertDialog(
             onDismissRequest = { confirmingCancel = false },
-            title = { Text("ยกเลิกคิว ${order.order.queueNo}?") },
+            title = {
+                Text(
+                    if (order.order.session > QueueNumbering.FIRST_SESSION)
+                        "ยกเลิกคิว ${order.order.queueNo} รอบ ${order.order.session}?"
+                    else "ยกเลิกคิว ${order.order.queueNo}?"
+                )
+            },
             text = {
                 Text(
                     "ออเดอร์นี้รับเงินไปแล้ว ${order.order.total}.- — ยกเลิกแล้วจะหายจากจอครัว " +
@@ -244,7 +251,11 @@ fun OrderDetailSheet(
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    "คิว ${order.order.queueNo}",
+                    // This is the screen somebody reads to confirm they have the right order
+                    // before handing food over, so after a reset it has to say which #1.
+                    if (order.order.session > QueueNumbering.FIRST_SESSION)
+                        "คิว ${order.order.queueNo} · รอบ ${order.order.session}"
+                    else "คิว ${order.order.queueNo}",
                     fontSize = 40.sp,
                     fontWeight = FontWeight.Bold,
                     color = PriceOrange

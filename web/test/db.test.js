@@ -71,7 +71,11 @@ test('a replay does not put a card the kitchen has finished back into กำล�
 
   db.recordOrder(order(7));
 
-  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [7], 'the ready flag survives the retry');
+  assert.deepEqual(
+    db.readyQueueNos(DAY, 'pos'),
+    [{ session: 1, queueNo: 7 }],
+    'the ready flag survives the retry'
+  );
   db.close();
 });
 
@@ -82,7 +86,7 @@ test('the ready list is per terminal', () => {
   db.setReady(DAY, 1, 'pos2', true);
 
   assert.deepEqual(db.readyQueueNos(DAY, 'pos'), []);
-  assert.deepEqual(db.readyQueueNos(DAY, 'pos2'), [1]);
+  assert.deepEqual(db.readyQueueNos(DAY, 'pos2'), [{ session: 1, queueNo: 1 }]);
   assert.equal(db.openOrders(DAY).length, 2, 'two tills both issuing #1 is ordinary');
   db.close();
 });
@@ -91,7 +95,7 @@ test('the kitchen can undo a พร้อมส่ง, and the list is what says
   const db = tempDb();
   db.recordOrder(order(3));
   db.setReady(DAY, 3, 'pos', true);
-  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [3]);
+  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [{ session: 1, queueNo: 3 }]);
 
   assert.equal(db.setReady(DAY, 3, 'pos', false), true);
   assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [], 'the till reads this list as the whole truth');
@@ -167,4 +171,93 @@ test('a queue number that is not a number is refused rather than stored as one',
   assert.throws(() => db.recordOrder(order('')), /เลขคิว/);
   assert.throws(() => db.recordOrder(order(0)), /เลขคิว/);
   db.close();
+});
+
+// ---------------------------------------------------------------- numbering rounds
+//
+// เริ่มนับคิวใหม่ on the terminal starts the queue at 1 again, which an event genuinely wants: two
+// services can run on one calendar day. Before the round was part of an order's identity that
+// button was a trap at both ends — the terminal's own unique index refused the afternoon's first
+// order outright, and here the replace-on-conflict that makes the outbox safe to retry would have
+// **overwritten a paid order**. These pin the half that is this file's.
+
+test('a reset mid-day gives the afternoon its own #1 rather than replacing the morning', () => {
+  const db = tempDb();
+  const morning = db.recordOrder(order(1, { session: 1, total: 60 }));
+  const afternoon = db.recordOrder(order(1, { session: 2, total: 110 }));
+
+  assert.equal(morning.replaced, false);
+  assert.equal(afternoon.replaced, false, 'the second #1 is a new order, not a replacement');
+  assert.notEqual(morning.orderId, afternoon.orderId);
+
+  const open = db.openOrders(DAY);
+  assert.equal(open.length, 2);
+  assert.deepEqual(open.map((o) => [o.session, o.queue_no, o.total]), [[1, 1, 60], [2, 1, 110]]);
+
+  // And the day's takings still cover the whole day. A round is a numbering decision, not a
+  // separate ledger.
+  const totals = db.dayTotals(DAY);
+  assert.equal(totals.orders, 2);
+  assert.equal(totals.takings, 170);
+});
+
+test('a retry still replaces its own order, round and all', () => {
+  const db = tempDb();
+  db.recordOrder(order(1, { session: 1 }));
+  db.recordOrder(order(1, { session: 2, total: 110 }));
+  const retry = db.recordOrder(order(1, { session: 2, total: 110 }));
+
+  assert.equal(retry.replaced, true);
+  assert.equal(db.openOrders(DAY).length, 2, 'the outbox retry adds no third card');
+});
+
+test('an order with no round named belongs to the first one', () => {
+  const db = tempDb();
+  // What a terminal that predates the column sends, and what its outbox rows still hold.
+  const saved = db.recordOrder(order(4, { session: undefined }));
+  assert.equal(saved.session, 1);
+  assert.equal(db.recordOrder(order(4, { session: 1 })).replaced, true, 'and it is the same order');
+});
+
+test('พร้อมส่ง names the round, so it cannot call the wrong #1', () => {
+  const db = tempDb();
+  db.recordOrder(order(1, { session: 1 }));
+  db.recordOrder(order(1, { session: 2 }));
+
+  assert.equal(db.setReady(DAY, 1, 'pos', true, 2), true);
+  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [{ session: 2, queueNo: 1 }]);
+
+  const morning = db.openOrders(DAY).find((o) => o.session === 1);
+  assert.equal(morning.status, 'waiting', "the morning's #1 is left alone");
+
+  // Both rounds are in the list the terminal takes as the whole truth: a reset does not hand over
+  // food that was already cooking, so an order from the morning can still be marked ready.
+  db.setReady(DAY, 1, 'pos', true, 1);
+  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [
+    { session: 1, queueNo: 1 },
+    { session: 2, queueNo: 1 }
+  ]);
+});
+
+test('a status message with no round matches whichever round has that number', () => {
+  const db = tempDb();
+  // An outbox row written by the old build carries no round. Missing the order entirely would be
+  // worse than acting on the only one that can be meant on a day with one round.
+  db.recordOrder(order(7, { session: 1 }));
+  assert.equal(db.markPicked(DAY, 7, 'pos', undefined), true);
+  assert.equal(db.openOrders(DAY).length, 0);
+});
+
+test('cancelling and collecting are scoped to their round too', () => {
+  const db = tempDb();
+  db.recordOrder(order(2, { session: 1, total: 60 }));
+  db.recordOrder(order(2, { session: 2, total: 110 }));
+
+  assert.equal(db.markCancelled(DAY, 2, 'pos', 1), true);
+  assert.equal(db.markPicked(DAY, 2, 'pos', 2), true);
+
+  const totals = db.dayTotals(DAY);
+  assert.equal(totals.orders, 1, 'the cancelled one is out of the takings');
+  assert.equal(totals.takings, 110);
+  assert.equal(db.openOrders(DAY).length, 0, 'and neither is still owed to anybody');
 });

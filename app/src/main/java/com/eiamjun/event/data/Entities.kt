@@ -83,12 +83,23 @@ data class OptionEntity(
  * row exists only because somebody has paid. That is why [status] starts at [OrderStatus.WAITING]
  * and never at "open" — this app has no table to leave an order sitting on.
  */
-@Entity(tableName = "orders", indices = [Index(value = ["day", "queueNo"], unique = true)])
+@Entity(
+    tableName = "orders",
+    indices = [Index(value = ["day", "session", "queueNo"], unique = true)]
+)
 data class OrderEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     /** What is printed on the customer's ticket. Restarts at 1 each event day — see QueueCounter. */
     val queueNo: Int,
     val day: String,
+    /**
+     * Which numbering round within the day this ticket belongs to, from 1.
+     *
+     * Part of the order's identity, not a label: เริ่มนับคิวใหม่ starts the numbers again, so one
+     * day can hold two #1s and the number alone cannot tell them apart. Without this column the
+     * unique index rejected the afternoon's first order outright — see [QueueNumbering].
+     */
+    val session: Int = QueueNumbering.FIRST_SESSION,
     val total: Int,
     val status: String = OrderStatus.WAITING,
     val payment: String = Payment.QR,

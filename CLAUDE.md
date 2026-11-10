@@ -110,7 +110,7 @@ defaults to the literal `"pos"` and **never `Build.MODEL`** — every Sunmi the 
 `V2_PRO-ST`, so a model-derived default means a second terminal introduces itself under a name that
 already means the first. Name a second terminal before its first launch.
 
-`(day, source, queueNo)` is an order's identity on the server, which is also what makes the
+`(day, source, session, queueNo)` is an order's identity on the server, which is also what makes the
 outbox's retries idempotent: a push that timed out *after* the write lands on the same row rather
 than putting a second card on the board. A replay deliberately does **not** reset the status — the
 kitchen may have tapped พร้อมส่ง in between, and putting the card back would have the number
@@ -119,26 +119,42 @@ called twice.
 ตั้งค่า → เริ่มนับคิวใหม่ resets by hand, behind a confirmation, because an event can run two
 sessions in one calendar day and no automatic rule could know which.
 
-⚠️ **เริ่มนับคิวใหม่ is unsafe on a day that already has orders, and that is the day it is for.**
-Found on the terminal, in the event log: `UNIQUE constraint failed: orders.day, orders.queueNo`.
+**A reset opens a numbering round, because the number alone was never an identity.** Found on the
+terminal, in the event log: `UNIQUE constraint failed: orders.day, orders.queueNo`. The local
+`orders` table was unique on `(day, queueNo)` and the server's on `(day, source, queue_no)`, so
+resetting the counter to 1 on a day that already held #1 collided — the insert threw, `charge`
+failed, and the staff got "บันทึกออเดอร์ไม่สำเร็จ" with no ticket, no sale and a customer standing
+there. The half nobody would have seen is worse: had it not thrown locally, `recordOrder` replaces
+on conflict, so the afternoon's #1 would have **overwritten a paid order** on the server. Both
+outcomes landed exactly on the two-sessions-in-one-day case the button exists for.
 
-The local `orders` table is unique on `(day, queueNo)` and the server's on
-`(day, source, queue_no)`, so a queue number **is** part of an order's identity within a trading
-day. Resetting the counter to 1 while that day already holds #1 therefore collides: the local
-insert throws and `charge` fails, so the staff get "บันทึกออเดอร์ไม่สำเร็จ", no ticket and no sale
-— with a customer standing there. And if it had not thrown locally, `recordOrder` replaces on
-conflict, so the morning's order would have been **overwritten** on the server instead.
+So `QueueCounter` keeps a round beside the sequence, a reset steps it, and the round is carried on
+`orders.session` here (`MIGRATION_1_2`) and on the server, with the unique indexes now
+`(day, session, queueNo)` and `(day, source, session, queue_no)`. Anything cheaper either loses the
+morning's orders or loses the button.
 
-Both outcomes land exactly on the two-sessions-in-one-day case the button advertises.
+The rule is in `QueueNumbering`, as a pure function of what is stored, **separated from the
+counter so it can be tested without a device** — this arithmetic reached a real counter once, and a
+rule that only runs on hardware is one nobody checks. A reset on a day this terminal has not sold
+on yet stays at round 1: there is no #1 to step past, so it claims nothing.
 
-Until it is fixed: **only press it when the day has no orders yet.** Across a real day boundary
-it is unnecessary anyway — numbering restarts on its own at 07:00.
+⚠️ **The round reaches four places that draw a number, and every one of them had to be told.**
+A queue number is what a person matches against a ticket, so wherever two cards can read the same
+number the round is named — the kitchen board's card, the terminal's queue card, the order sheet,
+and the cancel confirmation. It is drawn **only past round 1**, because a label that is always
+there is one nobody reads. The sorts carry it too (`session` before `queueNo`, on both sides), or
+the morning's leftovers interleave with an afternoon whose numbers have started again.
 
-The fix is to make a reset start a numbering *session* that is part of the identity on both
-sides: a `session` ordinal on the counter, a column on `orders` here (migration) and on the
-server, with the unique indexes becoming `(day, session, queueNo)` and
-`(day, source, session, queue_no)`. Anything cheaper either loses the morning's orders or loses
-the button.
+⚠️ **A status message may legitimately carry no round, and that is not the same as round 1 for a
+*lookup*.** An order push always names its round — it is being written. A ready/collected/cancelled
+message may have been sitting in an outbox since before the column existed, so `matchSession` makes
+an absent round match the number in **any** round, while `sessionOf` defaults a written order to 1.
+Collapsing the two would have such a message silently miss its order.
+
+The poll's `ready` list is `[{session, queueNo}]` rather than bare numbers, and `KitchenSync`
+accepts both shapes — the bare one only means the minutes between deploying the server and
+installing the terminal. **Deploy `web/` before the APK**: until the server has the column it drops
+the field and the replace-on-conflict above is still live.
 
 
 ---

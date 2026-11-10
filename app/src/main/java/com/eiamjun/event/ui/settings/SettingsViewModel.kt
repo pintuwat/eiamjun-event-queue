@@ -28,6 +28,8 @@ data class SettingsUiState(
     val queueNumberDots: Int = 0,
     val useSunmiPrinter: Boolean = true,
     val nextQueueNo: Int = 1,
+    /** Which numbering round เริ่มนับคิวใหม่ has put the day on. Shown only past the first. */
+    val queueSession: Int = 1,
     val connectionResult: String? = null,
     val printerStatus: String? = null,
     val preview: String? = null
@@ -59,7 +61,8 @@ class SettingsViewModel @Inject constructor(
         qrDotSize = settings.qrDotSize,
         queueNumberDots = settings.queueNumberDots,
         useSunmiPrinter = settings.printerKind == AppSettings.PRINTER_SUNMI,
-        nextQueueNo = queueCounter.peek()
+        nextQueueNo = queueCounter.peek().number,
+        queueSession = queueCounter.peek().session
     )
 
     /**
@@ -161,8 +164,9 @@ class SettingsViewModel @Inject constructor(
      */
     fun resetQueue() {
         queueCounter.reset()
-        _state.value = _state.value.copy(nextQueueNo = queueCounter.peek())
-        log.info("เริ่มนับคิวใหม่")
+        val ticket = queueCounter.peek()
+        _state.value = _state.value.copy(nextQueueNo = ticket.number, queueSession = ticket.session)
+        log.info("เริ่มนับคิวใหม่ (รอบที่ ${ticket.session})")
     }
 
     fun readPrinterStatus() {

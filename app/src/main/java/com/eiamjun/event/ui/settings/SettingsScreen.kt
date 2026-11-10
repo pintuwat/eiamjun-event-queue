@@ -219,7 +219,14 @@ fun SettingsScreen(
 
             Divider()
             SectionTitle("คิว")
-            Text("คิวถัดไปคือ ${state.nextQueueNo}", style = MaterialTheme.typography.titleMedium)
+            // The round is named only once there is one, so the ordinary day says nothing extra —
+            // but after a reset it is the only thing on screen that shows the button did anything,
+            // since the number goes back to where it already was.
+            Text(
+                if (state.queueSession > 1) "คิวถัดไปคือ ${state.nextQueueNo} (รอบที่ ${state.queueSession})"
+                else "คิวถัดไปคือ ${state.nextQueueNo}",
+                style = MaterialTheme.typography.titleMedium
+            )
             OutlinedButton(
                 onClick = { confirmingReset = true },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = Alert),
@@ -247,7 +254,8 @@ fun SettingsScreen(
             title = { Text("เริ่มนับคิวใหม่?") },
             text = {
                 Text(
-                    "คิวถัดไปจะกลับไปเป็น 1 — ถ้ายังมีลูกค้าถือบัตรคิวเดิมอยู่ เลขจะซ้ำกัน"
+                    "คิวถัดไปจะกลับไปเป็น 1 — ถ้ายังมีลูกค้าถือบัตรคิวเดิมอยู่ เลขจะซ้ำกัน " +
+                        "ออเดอร์ที่ยังไม่ได้รับของจะยังอยู่ในคิวและยอดขายวันนี้ตามเดิม"
                 )
             },
             confirmButton = {

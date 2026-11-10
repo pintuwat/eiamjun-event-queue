@@ -3,6 +3,7 @@ package com.eiamjun.event.di
 import android.content.Context
 import androidx.room.Room
 import com.eiamjun.event.data.AppDatabase
+import com.eiamjun.event.data.Migrations
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -22,7 +23,9 @@ object AppModule {
     @Provides
     @Singleton
     fun database(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME).build()
+        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.NAME)
+            .addMigrations(*Migrations.ALL)
+            .build()
 
     @Provides
     fun menuDao(db: AppDatabase) = db.menuDao()

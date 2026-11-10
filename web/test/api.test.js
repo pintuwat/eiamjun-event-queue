@@ -184,14 +184,18 @@ test('พร้อมส่ง reaches the ready list the till polls, and undo t
   assert.equal((await ready.json()).changed, true);
 
   let list = await (await asTill(`/api/orders/ready?day=${DAY}&source=pos`)).json();
-  assert.ok(list.ready.includes(3));
+  assert.ok(list.ready.some((r) => r.queueNo === 3 && r.session === 1));
 
   await asTill('/api/orders/unready', {
     method: 'POST',
     body: { day: DAY, queueNo: 3, source: 'pos' }
   });
   list = await (await asTill(`/api/orders/ready?day=${DAY}&source=pos`)).json();
-  assert.equal(list.ready.includes(3), false, 'the till reads this list as the whole truth');
+  assert.equal(
+    list.ready.some((r) => r.queueNo === 3),
+    false,
+    'the till reads this list as the whole truth'
+  );
 });
 
 test('collecting an order takes it off the board', async () => {
@@ -249,4 +253,76 @@ test('a path cannot climb out of public/', async () => {
     redirect: 'manual'
   });
   assert.ok(res.status === 403 || res.status === 404, `got ${res.status}`);
+});
+
+// ---------------------------------------------------------------- numbering rounds over the wire
+//
+// The round is carried on four routes, and the one thing a unit test cannot show is whether the
+// handlers actually read it off the body. These drive the whole loop the way the terminal and the
+// board do: push two orders that both say #1, mark one of them ready, and check the other is
+// untouched at both ends.
+
+test('a reset mid-day puts a second #1 on the board rather than replacing the first', async () => {
+  const day = '2026-11-20';
+  const morning = await asTill('/api/orders', {
+    method: 'POST',
+    body: order(1, { day, session: 1, total: 60 })
+  });
+  const afternoon = await asTill('/api/orders', {
+    method: 'POST',
+    body: order(1, { day, session: 2, total: 110 })
+  });
+
+  assert.equal(morning.status, 200);
+  assert.equal(afternoon.status, 200);
+  const saved = await afternoon.json();
+  assert.equal(saved.session, 2);
+  assert.equal(saved.replaced, false, 'the afternoon does not overwrite the morning');
+
+  const board = await (await asTill(`/api/orders?day=${day}`)).json();
+  assert.equal(board.orders.length, 2);
+  // The board needs the round to tell two cards apart, so it has to come back shaped.
+  assert.deepEqual(
+    board.orders.map((o) => [o.session, o.queueNo, o.total]),
+    [[1, 1, 60], [2, 1, 110]]
+  );
+});
+
+test('พร้อมส่ง on one round leaves the other alone, through the route', async () => {
+  const day = '2026-11-21';
+  await asTill('/api/orders', { method: 'POST', body: order(1, { day, session: 1 }) });
+  await asTill('/api/orders', { method: 'POST', body: order(1, { day, session: 2 }) });
+
+  const tap = await asTill('/api/orders/ready', {
+    method: 'POST',
+    body: { day, queueNo: 1, session: 2, source: 'pos' }
+  });
+  assert.equal(tap.status, 200);
+  assert.equal((await tap.json()).changed, true);
+
+  const list = await (await asTill(`/api/orders/ready?day=${day}&source=pos`)).json();
+  assert.deepEqual(list.ready, [{ session: 2, queueNo: 1 }]);
+
+  const board = await (await asTill(`/api/orders?day=${day}`)).json();
+  const statuses = board.orders.map((o) => [o.session, o.status]);
+  assert.deepEqual(statuses, [[1, 'waiting'], [2, 'ready']]);
+});
+
+test('an order pushed with no round is the first one, and its old outbox messages still land', async () => {
+  const day = '2026-11-22';
+  // What the build before this one sends — and what its outbox rows still hold, which is why a
+  // status message with no round is not rejected.
+  const saved = await (
+    await asTill('/api/orders', { method: 'POST', body: order(5, { day, session: undefined }) })
+  ).json();
+  assert.equal(saved.session, 1);
+
+  const picked = await asTill('/api/orders/picked', {
+    method: 'POST',
+    body: { day, queueNo: 5, source: 'pos' }
+  });
+  assert.equal((await picked.json()).changed, true);
+
+  const board = await (await asTill(`/api/orders?day=${day}`)).json();
+  assert.equal(board.orders.length, 0);
 });

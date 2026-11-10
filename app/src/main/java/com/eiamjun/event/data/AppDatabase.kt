@@ -4,14 +4,14 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Version 1, and there is no `fallbackToDestructiveMigration()`.
+ * Version 2, and there is no `fallbackToDestructiveMigration()`.
  *
  * The shop's till learned this the expensive way: once a database holds money that has been taken,
  * a missing migration has to fail loudly at startup rather than quietly delete the day. An event's
  * orders are smaller but they are still the only record of what has been paid for and not yet
  * handed over — losing them mid-service means every customer holding a ticket is unserveable.
  *
- * **Every schema change from here needs a Migration.**
+ * **Every schema change from here needs a Migration.** They live in [Migrations].
  */
 @Database(
     entities = [
@@ -22,7 +22,7 @@ import androidx.room.RoomDatabase
         OrderLineEntity::class,
         OutboxEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

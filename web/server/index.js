@@ -133,8 +133,9 @@ export const server = http.createServer(async (req, res) => {
  *
  * Replays are expected, not exceptional: the terminal's outbox retries anything it did not get an
  * answer for, and a push that timed out *after* the write would otherwise put a second card on the
- * board for one customer. `(day, source, queueNo)` is the identity, so a replay lands on the same
- * row — see `recordOrder`.
+ * board for one customer. `(day, source, session, queueNo)` is the identity, so a replay lands on
+ * the same row — see `recordOrder`. The round is in it because the terminal can be told to start
+ * counting from 1 again mid-day, and without it the afternoon's #1 replaced the morning's.
  */
 async function handleOrder(req, res) {
   let body;
@@ -149,6 +150,7 @@ async function handleOrder(req, res) {
     // way the board does not show. The terminal's own event log is in memory and gone on restart.
     console.log(
       `order ${saved.day} #${saved.queueNo} · ${saved.source}` +
+        (saved.session > 1 ? ` · รอบ ${saved.session}` : '') +
         (saved.replaced ? ' (ซ้ำ — เขียนทับ)' : '')
     );
     return json(res, 200, { ok: true, ...saved });
@@ -187,14 +189,21 @@ async function handleStatus(req, res, action) {
   }
   const day = typeof body.day === 'string' && body.day ? body.day : businessDay();
   const source = String(body.source || 'pos');
+  // Passed through as-is, including absent: a message with no round matches the number in any
+  // round, which is how an outbox row written before the column existed still lands. See
+  // `matchSession` in db.js.
+  const session = body.session;
 
   let changed;
-  if (action === 'ready') changed = db.setReady(day, queueNo, source, true);
-  else if (action === 'unready') changed = db.setReady(day, queueNo, source, false);
-  else if (action === 'picked') changed = db.markPicked(day, queueNo, source);
-  else changed = db.markCancelled(day, queueNo, source);
+  if (action === 'ready') changed = db.setReady(day, queueNo, source, true, session);
+  else if (action === 'unready') changed = db.setReady(day, queueNo, source, false, session);
+  else if (action === 'picked') changed = db.markPicked(day, queueNo, source, session);
+  else changed = db.markCancelled(day, queueNo, source, session);
 
-  console.log(`${action} ${day} #${queueNo} · ${source} → ${changed ? 'ok' : 'ไม่พบ/ไม่เปลี่ยน'}`);
+  console.log(
+    `${action} ${day} #${queueNo}${session > 1 ? ` · รอบ ${session}` : ''} · ${source}` +
+      ` → ${changed ? 'ok' : 'ไม่พบ/ไม่เปลี่ยน'}`
+  );
   // Not an error when nothing changed. A card already collected, or a tap on an order this server
   // has never seen because the terminal is still offline, are both ordinary — and answering 404
   // would make the terminal's outbox retry forever.
@@ -205,6 +214,9 @@ async function handleStatus(req, res, action) {
 function shapeOrder(row) {
   return {
     queueNo: row.queue_no,
+    // The board sends this straight back on พร้อมส่ง/รับแล้ว, so the tap finds the right one of
+    // two cards that both read #3 after a reset.
+    session: row.session,
     source: row.source,
     status: row.status,
     total: row.total,

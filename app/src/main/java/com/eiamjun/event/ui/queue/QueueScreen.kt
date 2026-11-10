@@ -38,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eiamjun.event.data.EventDay
 import com.eiamjun.event.data.OrderStatus
 import com.eiamjun.event.data.OrderWithLines
+import com.eiamjun.event.data.QueueNumbering
 import com.eiamjun.event.ui.components.OrderDetailSheet
 import com.eiamjun.event.ui.components.PreviewDialog
 import com.eiamjun.event.ui.theme.Alert
@@ -81,6 +82,10 @@ fun QueueScreen(
     val sorted = remember(orders) {
         orders.sortedWith(
             compareBy<OrderWithLines> { if (it.order.status == OrderStatus.READY) 0 else 1 }
+                // The round before the number: after เริ่มนับคิวใหม่ the numbers start again, so
+                // the morning's leftovers belong above the afternoon rather than interleaved with
+                // it by a number that no longer counts up.
+                .thenBy { it.order.session }
                 .thenBy { it.order.queueNo }
         )
     }
@@ -196,13 +201,26 @@ private fun QueueCard(
             Modifier.padding(14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "${order.order.queueNo}",
-                fontSize = 44.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (ready) Basil else PriceOrange,
-                modifier = Modifier.padding(end = 14.dp)
-            )
+            Column(
+                Modifier.padding(end = 14.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    "${order.order.queueNo}",
+                    fontSize = 44.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (ready) Basil else PriceOrange
+                )
+                // Drawn only once a reset has happened, which is the only time the list can hold
+                // two cards reading the same number — and the only time it tells anyone anything.
+                if (order.order.session > QueueNumbering.FIRST_SESSION) {
+                    Text(
+                        "รอบ ${order.order.session}",
+                        fontSize = 13.sp,
+                        color = InkTextDim
+                    )
+                }
+            }
             Column(Modifier.weight(1f)) {
                 Text(
                     if (ready) "พร้อมส่ง" else "กำลังทำ",

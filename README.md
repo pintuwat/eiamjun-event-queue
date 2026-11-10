@@ -137,11 +137,12 @@ from. A second terminal needs its own name in ตั้งค่า before its f
 that is still going on. ตั้งค่า → เริ่มนับคิวใหม่ resets by hand, for an event that runs two
 sessions in one day.
 
-> ⚠️ **Known bug: do not press เริ่มนับคิวใหม่ on a day that already has orders.** A queue number
-> is part of an order's identity within a trading day, so reusing one makes the next charge fail
-> outright (`UNIQUE constraint failed`) — no ticket, no sale, customer waiting. Across a real day
-> boundary the reset is unnecessary; numbering restarts on its own at 07:00. See CLAUDE.md for the
-> proper fix.
+**A reset opens a new round, and the round travels with the order.** The customer's ticket still
+says 1, but the day now holds two #1s and they are different orders: the round is part of what
+identifies one, on the terminal and on the server. Where two can be confused — the kitchen board,
+the queue list, the order sheet — the second round is labelled **รอบ 2**, and nothing is labelled
+on an ordinary day, because that is the only time it tells anybody anything. Orders already taken
+stay in the queue and in the day's takings; a reset is a numbering decision, not a new ledger.
 
 **Nothing on the queue ticket but the number.** The kitchen reads the order off the iPad; a ticket
 listing the food invites the customer to check it at the counter, which is the queue this app

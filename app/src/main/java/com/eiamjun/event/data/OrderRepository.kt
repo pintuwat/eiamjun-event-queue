@@ -48,7 +48,10 @@ class OrderRepository @Inject constructor(
     fun observeOutboxDepth(): Flow<Int> = outbox.observeDepth()
 
     /** What the next ticket will say, for the pad to show before anything is charged. */
-    fun peekQueueNo(): Int = queueCounter.peek()
+    fun peekQueueNo(): Int = queueCounter.peek().number
+
+    /** The round the numbering is on, for ตั้งค่า to show that a reset took effect. */
+    fun peekQueueSession(): Int = queueCounter.peek().session
 
     /**
      * Takes the money, takes a queue number, and hands back the order to print.
@@ -66,9 +69,10 @@ class OrderRepository @Inject constructor(
         require(lines.isNotEmpty()) { "ไม่มีรายการ" }
         return db.withTransaction {
             val now = System.currentTimeMillis()
-            val queueNo = queueCounter.next(now)
+            val ticket = queueCounter.next(now)
             val order = OrderEntity(
-                queueNo = queueNo,
+                queueNo = ticket.number,
+                session = ticket.session,
                 day = EventDay.of(now),
                 total = lines.sumOf { it.total },
                 payment = payment,
@@ -107,6 +111,7 @@ class OrderRepository @Inject constructor(
                     kind = OutboxKind.PICKED,
                     payload = JSONObject()
                         .put("queueNo", order.queueNo)
+                        .put("session", order.session)
                         .put("day", order.day)
                         .put("source", settings.deviceName)
                         .put("at", System.currentTimeMillis())
@@ -124,6 +129,7 @@ class OrderRepository @Inject constructor(
                     kind = OutboxKind.CANCELLED,
                     payload = JSONObject()
                         .put("queueNo", order.queueNo)
+                        .put("session", order.session)
                         .put("day", order.day)
                         .put("source", settings.deviceName)
                         .toString()
@@ -145,13 +151,15 @@ class OrderRepository @Inject constructor(
      *
      * @return how many orders actually changed state.
      */
-    suspend fun applyReadySet(day: String, readyQueueNos: Collection<Int>): Int {
-        val ready = readyQueueNos.toSet()
+    suspend fun applyReadySet(day: String, ready: Collection<QueueKey>): Int {
         var changed = 0
         orders.openIdentities(day).forEach { open ->
+            // Matched on the round as well as the number, or a reset would make the morning's #3
+            // and the afternoon's #3 the same card: marking one ready would call both.
+            val isReady = ready.any { it.matches(open) }
             // Both calls are guarded by the status they come from, so this writes nothing when the
             // two sides already agree — which, poll after poll, is almost always.
-            if (open.queueNo in ready) orders.markReady(open.id) else orders.markWaiting(open.id)
+            if (isReady) orders.markReady(open.id) else orders.markWaiting(open.id)
             changed++
         }
         return changed
@@ -172,6 +180,7 @@ class OrderRepository @Inject constructor(
                     kind = OutboxKind.READY,
                     payload = JSONObject()
                         .put("queueNo", order.queueNo)
+                        .put("session", order.session)
                         .put("day", order.day)
                         .put("source", settings.deviceName)
                         .toString()
@@ -194,6 +203,9 @@ class OrderRepository @Inject constructor(
     private fun orderPayload(order: OrderEntity, lines: List<OrderLineEntity>): String =
         JSONObject()
             .put("queueNo", order.queueNo)
+            // The round the number was issued in. Part of the identity the server replaces on, so
+            // a retried push lands on its own row instead of overwriting the morning's #1.
+            .put("session", order.session)
             .put("day", order.day)
             // The name this terminal had when the order was rung up, written into the payload now
             // and sent whole later. Rebuilding it at send time would rename orders still waiting

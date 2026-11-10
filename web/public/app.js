@@ -102,7 +102,16 @@ function card(order, isReady) {
   const waited = document.createElement('span');
   waited.className = 'waited' + (late ? ' late' : '');
   waited.textContent = isReady ? 'พร้อมแล้ว' : `รอ ${minutes} นาที`;
-  top.append(queue, waited);
+  top.append(queue);
+  // Named only when there is more than one round, which is the only time it tells the cook
+  // anything — and the only time two cards on this board can read the same number.
+  if (order.session > 1) {
+    const round = document.createElement('span');
+    round.className = 'round';
+    round.textContent = `รอบ ${order.session}`;
+    top.append(round);
+  }
+  top.append(waited);
 
   const lines = document.createElement('div');
   lines.className = 'lines';
@@ -149,8 +158,14 @@ function card(order, isReady) {
   return root;
 }
 
+/**
+ * What tells two cards apart.
+ *
+ * The round is in it because the till can be told to start counting from 1 again mid-service, so
+ * one board can show two #3s — and the local move below finds a card by this key.
+ */
 function key(order) {
-  return `${order.source}#${order.queueNo}`;
+  return `${order.source}/${order.session || 1}#${order.queueNo}`;
 }
 
 /**
@@ -176,7 +191,12 @@ async function setReady(order, ready, button) {
     const res = await fetch(`/api/orders/${ready ? 'ready' : 'unready'}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ day: board.day, queueNo: order.queueNo, source: order.source })
+      body: JSON.stringify({
+        day: board.day,
+        queueNo: order.queueNo,
+        session: order.session,
+        source: order.source
+      })
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     setLink(true);
