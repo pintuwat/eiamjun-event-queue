@@ -14,6 +14,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -34,6 +35,8 @@ import com.eiamjun.event.data.CartLine
 import com.eiamjun.event.data.MenuItemWithOptions
 import com.eiamjun.event.data.OptionEntity
 import com.eiamjun.event.data.OptionJoin
+import com.eiamjun.event.ui.theme.Gold
+import com.eiamjun.event.ui.theme.InkText
 
 /**
  * What the pad asks before a bowl goes on the order.
@@ -119,6 +122,18 @@ fun OrderLineSheet(
                                             fontSize = 19.sp
                                         )
                                     },
+                                    // A chosen option is filled in the same gold the เพิ่ม
+                                    // button below it carries, at the shop's word. The stock
+                                    // chip's selected state is a tint a shade off the paper —
+                                    // on a 5.5" screen held at arm's length with a queue
+                                    // waiting, "which one is picked" has to be answerable from
+                                    // across the counter, and matching the one button on the
+                                    // sheet that is already loud is what makes it one colour
+                                    // the staff learn rather than two.
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = Gold,
+                                        selectedLabelColor = InkText
+                                    ),
                                     modifier = Modifier.heightIn(min = 48.dp)
                                 )
                             }

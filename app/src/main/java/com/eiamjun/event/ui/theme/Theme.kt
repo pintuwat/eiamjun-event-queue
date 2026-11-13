@@ -23,6 +23,13 @@ val Gold = Color(0xFFD9A544)
 val Basil = Color(0xFF4C7A4A)
 val Alert = Color(0xFFB23A2B)
 
+/**
+ * [Alert] is mixed to be read as ink on paper, and on the wood it goes muddy — about 2:1 against
+ * [Wood2], which is a warning nobody can read. This is the same red lightened for a dark strip.
+ * The shop's web till keeps a lightened pair for exactly this reason.
+ */
+val AlertOnWood = Color(0xFFE8826F)
+
 /** Prices and queue numbers. Louder than the wood palette, because the number is the point. */
 val PriceOrange = Color(0xFFC2410C)
 

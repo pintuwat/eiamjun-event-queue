@@ -150,6 +150,55 @@ thing worth testing.
 
 ---
 
+## What the two screens say, and how loudly
+
+Five things the shop asked for on 2026-11-13, after a service on 0.3.1. All of them are the same
+complaint: a stall is worked standing up, at arm's length, with a queue in front of you, and
+anything the app only whispers is a thing nobody reads.
+
+**A chosen option is filled in the same gold as เพิ่ม.** The stock `FilterChip` marks its selected
+state with a tint a shade off the paper, which is legible at a desk and not across a counter. The
+gold is not a new colour — it is `primary`, the one the เพิ่ม button on that very sheet already
+carries, so the sheet has one loud colour rather than two.
+
+**คิวถัดไป, คิวรอ and the way to the board came out of the app bar** and into a strip of their own
+under it (`QueueStrip`). They were a 20sp title, a 14sp line beneath it and a text action beside
+ตั้งค่า, and the bar cannot be made to carry them any bigger: a title slot caps the number, and a
+word in the actions row reads as a label rather than as the way somewhere. On the strip the next
+number gets 46sp, the button is a button, and the waiting count rides **on** that button because
+it is what is behind it.
+
+⚠️ The strip's labels are `softWrap = false`. Compose breaks Thai with a dictionary, and at three
+digits "รออยู่ 100 คิว" is within a few dp of the button's edge — the syllable split the shop's
+own pad already has a rule against. Running to the edge is allowed; falling in half is not.
+
+**"พร้อม" was read as the kitchen's word, and it is not.** The staff took the button for the board
+reporting a dish finished, when it is this terminal saying so — a different claim, made by a
+different person, and the one evening it matters is the evening the board cannot be reached. It
+reads **กดพร้อมเอง** now: an instruction, carrying เอง, because who is doing the declaring is the
+thing to understand before pressing it. The *status* words are untouched — กำลังทำ and พร้อมส่ง
+are statuses and were never the confusion.
+
+**ส่งของแล้ว is on the queue card, not only in the sheet.** Handing food over happens to every
+order, every time, and it was costing a tap into a dialog — with a queue waiting, that is the tap
+the staff pay most often. Loud (filled Basil, full width) on a พร้อมส่ง card and quiet (outlined)
+on one still cooking: both can be handed over, since the kitchen may simply never have marked it,
+but the ready card is the one somebody is walking towards with a bowl.
+
+**ยกเลิก stays behind the dialog, and that is the line between them.** It voids an order already
+paid for, with no undo, and a list read at speed is the last place it belongs. The sheet keeps its
+own ส่งของแล้ว, for someone who opened a card to read the lines back.
+
+**Checked on the real V2 Pro without ringing up a sale.** Two throwaway queues were written
+straight into the device's database — all three SQLite files pulled and integrity-checked first,
+then restored and verified row for row — so nothing printed, no money was recorded and nothing
+reached the kitchen server. ⚠️ Worth knowing for the next time: a staged `ready` row came back as
+`waiting` within seconds, because `poll()` takes the kitchen's list as the whole truth for that
+flag. That is the documented behaviour and not a fault, but it means the ready card cannot be seen
+this way at all.
+
+---
+
 ## Queue numbers
 
 Issued on the device (`QueueCounter`), restarting at 1 each event day, where the day begins at

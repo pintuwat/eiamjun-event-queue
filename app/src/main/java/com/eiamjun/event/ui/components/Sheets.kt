@@ -199,9 +199,13 @@ fun TicketPrintedSheet(
 /**
  * One order, opened from the queue list.
  *
- * This is where a bowl is handed over, and the three things that can happen to an order live here
- * rather than on the list row: the list is read at speed with a queue waiting, and ยกเลิก in
- * particular has no business being one mis-tap away on it.
+ * ส่งของแล้ว is on the list row as well, because it is what happens to every order and the tap
+ * into here was being paid every time. It stays on this screen too: somebody who opened a card to
+ * read the lines back should be able to finish from where they are rather than close the dialog to
+ * press the same word one row behind it.
+ *
+ * ยกเลิก does **not** move out, and that is the line between them: it voids an order already paid
+ * for, with no undo, and a list read at speed with a queue waiting is the last place it belongs.
  */
 @Composable
 fun OrderDetailSheet(

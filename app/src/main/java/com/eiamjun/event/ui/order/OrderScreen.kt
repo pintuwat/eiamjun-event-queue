@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -46,11 +48,14 @@ import com.eiamjun.event.ui.components.PaymentSheet
 import com.eiamjun.event.ui.components.PreviewDialog
 import com.eiamjun.event.ui.components.TicketPrintedSheet
 import com.eiamjun.event.ui.theme.Alert
+import com.eiamjun.event.ui.theme.AlertOnWood
+import com.eiamjun.event.ui.theme.CreamDim
 import com.eiamjun.event.ui.theme.Gold
 import com.eiamjun.event.ui.theme.InkText
 import com.eiamjun.event.ui.theme.InkTextDim
 import com.eiamjun.event.ui.theme.PriceOrange
 import com.eiamjun.event.ui.theme.Wood
+import com.eiamjun.event.ui.theme.Wood2
 
 /**
  * The till, and the app's home screen.
@@ -81,33 +86,25 @@ fun OrderScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Wood,
-                    titleContentColor = Gold,
-                    actionIconContentColor = Gold
-                ),
-                title = {
-                    Column {
-                        Text("คิวถัดไป ${state.nextQueueNo}", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        // The one line of status worth the app bar's room. The outbox depth is on
-                        // it because "nothing has reached the kitchen" is the failure that looks
-                        // exactly like everything working.
-                        Text(
-                            buildString {
-                                append("รออยู่ $openCount คิว")
-                                if (outboxDepth > 0) append(" · ค้างส่ง $outboxDepth")
-                            },
-                            fontSize = 14.sp,
-                            color = if (outboxDepth > 0) Alert else Gold
-                        )
+            Column {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = Wood,
+                        titleContentColor = Gold,
+                        actionIconContentColor = Gold
+                    ),
+                    title = { Text("สั่งอาหาร", fontSize = 20.sp, fontWeight = FontWeight.Bold) },
+                    actions = {
+                        TextButton(onClick = onOpenSettings) { Text("ตั้งค่า", color = Gold, fontSize = 18.sp) }
                     }
-                },
-                actions = {
-                    TextButton(onClick = onOpenQueue) { Text("คิว", color = Gold, fontSize = 18.sp) }
-                    TextButton(onClick = onOpenSettings) { Text("ตั้งค่า", color = Gold, fontSize = 18.sp) }
-                }
-            )
+                )
+                QueueStrip(
+                    nextQueueNo = state.nextQueueNo,
+                    openCount = openCount,
+                    outboxDepth = outboxDepth,
+                    onOpenQueue = onOpenQueue
+                )
+            }
         },
         bottomBar = {
             CartBar(
@@ -203,6 +200,79 @@ fun OrderScreen(
     }
 
     state.preview?.let { PreviewDialog(it, onDismiss = viewModel::dismissPreview) }
+}
+
+/**
+ * คิวถัดไป, how many are still waiting, and the way into the queue board.
+ *
+ * All three were in the app bar — the next number as a 20sp title, the waiting count as a 14sp
+ * line under it, and คิว as a text action beside ตั้งค่า. None of it was readable at the distance
+ * this screen is worked at, and the app bar cannot be made to carry it: a title slot caps how big
+ * a number can be, and a word in the actions row reads as a label rather than as the way to the
+ * board. So the three come out of the bar and get a strip of their own, where the number can have
+ * display type and the button can be a button.
+ *
+ * The waiting count rides on that button rather than beside it, because it is what is behind it.
+ */
+@Composable
+private fun QueueStrip(
+    nextQueueNo: Int,
+    openCount: Int,
+    outboxDepth: Int,
+    onOpenQueue: () -> Unit
+) {
+    Surface(color = Wood2) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("คิวถัดไป", fontSize = 17.sp, color = CreamDim)
+                    Text(
+                        "$nextQueueNo",
+                        fontSize = 46.sp,
+                        lineHeight = 50.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Gold
+                    )
+                }
+                Button(
+                    onClick = onOpenQueue,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Gold,
+                        contentColor = InkText
+                    ),
+                    // Narrow padding and no wrapping: at three digits of queue the label is
+                    // within a few dp of the button, and Compose breaks Thai with a dictionary —
+                    // "รออยู่" over "10 คิว" is the syllable split the shop's pad already has a
+                    // rule against. It is allowed to run to the button's edge; it is not allowed
+                    // to fall in half.
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                    modifier = Modifier.heightIn(min = 76.dp).widthIn(min = 156.dp)
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text("คิว", fontSize = 26.sp, fontWeight = FontWeight.Bold, softWrap = false)
+                        Text(
+                            "รออยู่ $openCount คิว",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            softWrap = false
+                        )
+                    }
+                }
+            }
+            // A line of its own rather than a suffix on the waiting count: "nothing has reached
+            // the kitchen" is the failure that looks exactly like everything working, and it was
+            // sharing a 14sp line with a number that is always there.
+            if (outboxDepth > 0) {
+                Text(
+                    "ค้างส่งครัว $outboxDepth",
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = AlertOnWood,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+        }
+    }
 }
 
 /**

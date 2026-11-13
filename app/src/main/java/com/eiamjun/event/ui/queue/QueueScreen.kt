@@ -7,14 +7,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -149,7 +153,8 @@ fun QueueScreen(
                     QueueCard(
                         order = order,
                         onClick = { opened = order.order.id },
-                        onMarkReadyHere = { viewModel.markReadyHere(order) }
+                        onMarkReadyHere = { viewModel.markReadyHere(order) },
+                        onPicked = { viewModel.markPicked(order) }
                     )
                 }
             }
@@ -177,16 +182,23 @@ fun QueueScreen(
 }
 
 /**
- * One queue number, as large as a row can carry it.
+ * One queue number, as large as a row can carry it, with what to do about it underneath.
  *
  * The number is what the staff match against a ticket held up over the counter, so it gets the
  * room; everything else on the card is there to confirm the right order once they have found it.
+ *
+ * **ส่งของแล้ว is on the card, not only in the sheet.** Handing food over is the one thing that
+ * happens to every order, every time, and it was costing a tap into a dialog to reach — with a
+ * queue waiting, that is the tap the staff pay most often. ยกเลิก stays behind the dialog for
+ * exactly the reason this one came out of it: it is the act that must never be one mis-tap away
+ * on a list read at speed.
  */
 @Composable
 private fun QueueCard(
     order: OrderWithLines,
     onClick: () -> Unit,
-    onMarkReadyHere: () -> Unit
+    onMarkReadyHere: () -> Unit,
+    onPicked: () -> Unit
 ) {
     val ready = order.order.status == OrderStatus.READY
     Card(
@@ -197,51 +209,87 @@ private fun QueueCard(
         ),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Row(
-            Modifier.padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(
-                Modifier.padding(end = 14.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
-            ) {
-                Text(
-                    "${order.order.queueNo}",
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = if (ready) Basil else PriceOrange
-                )
-                // Drawn only once a reset has happened, which is the only time the list can hold
-                // two cards reading the same number — and the only time it tells anyone anything.
-                if (order.order.session > QueueNumbering.FIRST_SESSION) {
+        Column(Modifier.padding(14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(
+                    Modifier.padding(end = 14.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
-                        "รอบ ${order.order.session}",
-                        fontSize = 13.sp,
+                        "${order.order.queueNo}",
+                        fontSize = 44.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (ready) Basil else PriceOrange
+                    )
+                    // Drawn only once a reset has happened, which is the only time the list can
+                    // hold two cards reading the same number — and the only time it tells anyone
+                    // anything.
+                    if (order.order.session > QueueNumbering.FIRST_SESSION) {
+                        Text(
+                            "รอบ ${order.order.session}",
+                            fontSize = 13.sp,
+                            color = InkTextDim
+                        )
+                    }
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        if (ready) "พร้อมส่ง" else "กำลังทำ",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = if (ready) Basil else InkTextDim
+                    )
+                    Text(
+                        order.lines.joinToString(", ") { "${it.qty}×${it.itemName}" },
+                        color = InkTextDim,
+                        maxLines = 2
+                    )
+                    Text(
+                        "${EventDay.clock(order.order.createdAt)} · ${order.order.total}.-",
                         color = InkTextDim
                     )
                 }
             }
-            Column(Modifier.weight(1f)) {
-                Text(
-                    if (ready) "พร้อมส่ง" else "กำลังทำ",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = if (ready) Basil else InkTextDim
-                )
-                Text(
-                    order.lines.joinToString(", ") { "${it.qty}×${it.itemName}" },
-                    color = InkTextDim,
-                    maxLines = 2
-                )
-                Text(
-                    "${EventDay.clock(order.order.createdAt)} · ${order.order.total}.-",
-                    color = InkTextDim
-                )
-            }
-            // The override, deliberately quiet: this transition belongs to the kitchen, and this
-            // button is for the evening its board cannot be reached.
-            if (!ready) {
-                TextButton(onClick = onMarkReadyHere, modifier = Modifier.heightIn(min = 44.dp)) {
-                    Text("พร้อม", color = Basil)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // ⚠️ **"พร้อม" read as the kitchen's word, and this button is not that.** The
+                // staff took it for the board reporting a dish finished, when it is this terminal
+                // saying so — which is a different claim, made by a different person, and the one
+                // evening it matters is the evening the board cannot be reached. The wording is
+                // an instruction now, and carries เอง, because what the staff have to understand
+                // before pressing it is who is doing the declaring.
+                if (!ready) {
+                    OutlinedButton(
+                        onClick = onMarkReadyHere,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+                    ) { Text("กดพร้อมเอง", fontSize = 18.sp, color = Basil, softWrap = false) }
+                }
+                // Loud on a ready card and quiet on one still cooking. Both can be handed over —
+                // the kitchen may simply never have marked it — but the ready card is the one
+                // somebody is walking towards with a bowl, and it is sorted to the top for the
+                // same reason.
+                if (ready) {
+                    Button(
+                        onClick = onPicked,
+                        colors = ButtonDefaults.buttonColors(containerColor = Basil),
+                        modifier = Modifier.weight(1f).heightIn(min = 60.dp)
+                    ) {
+                        Text(
+                            "ส่งของแล้ว",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White,
+                            softWrap = false
+                        )
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = onPicked,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp),
+                        modifier = Modifier.weight(1f).heightIn(min = 56.dp)
+                    ) { Text("ส่งของแล้ว", fontSize = 18.sp, color = Basil, softWrap = false) }
                 }
             }
         }
