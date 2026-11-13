@@ -149,13 +149,6 @@ fun SettingsScreen(
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
             )
-            OutlinedTextField(
-                value = state.shopSubtitle,
-                onValueChange = viewModel::setShopSubtitle,
-                label = { Text("บรรทัดรอง (บนใบเสร็จ)") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
 
             Divider()
             SectionTitle("รับเงิน")
@@ -170,9 +163,9 @@ fun SettingsScreen(
             // should be editing in a hurry at a stall.
             Text(
                 if (state.merchantQr.isBlank()) {
-                    "QR ร้านค้า · ยังไม่ได้ตั้ง — ยังไม่มี QR ขึ้นจอและไม่พิมพ์ลงใบเสร็จ"
+                    "QR ร้านค้า · ยังไม่ได้ตั้ง — ยังไม่มี QR ขึ้นจอให้ลูกค้าสแกน"
                 } else {
-                    "QR ร้านค้า · ตั้งแล้ว (${state.merchantQr.length} ตัวอักษร) · " +
+                    "QR ร้านค้า · ตั้งแล้ว (${state.merchantQr.length} ตัวอักษร) · ขึ้นบนจอตอนรับเงิน · " +
                         "⚠️ ต้องสแกนทดสอบด้วยแอปธนาคารจริงก่อนใช้งาน"
                 },
                 color = if (state.merchantQr.isBlank()) Alert else Basil
@@ -183,12 +176,6 @@ fun SettingsScreen(
                 label = { Text("เบอร์พร้อมเพย์ (ใช้เมื่อไม่มี QR ร้านค้า)") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
-            )
-            Stepper(
-                label = "ขนาด QR บนใบเสร็จ",
-                value = state.qrDotSize,
-                onChange = viewModel::setQrDotSize,
-                suffix = " จุด/ช่อง"
             )
 
             Divider()
@@ -201,13 +188,13 @@ fun SettingsScreen(
                 Switch(checked = state.useSunmiPrinter, onCheckedChange = viewModel::setUseSunmiPrinter)
             }
             Stepper(
-                label = "ขนาดเลขคิวบนบัตร",
+                label = "ขนาดเลขคิว (บัตรคิว + ใบเสร็จ)",
                 value = state.queueNumberDots,
                 onChange = viewModel::setQueueNumberDots,
                 suffix = " ระดับ"
             )
             Text(
-                "⚠️ ขนาดเลขคิวยังไม่เคยพิมพ์จริง — พิมพ์ตัวอย่างแล้วปรับจนพอดีกระดาษ",
+                "เลื่อนทีเดียวได้ทั้งสองใบ — เลขบนใบเสร็จคือตัวที่ครัวใช้จับคู่ของกับคิว",
                 color = Alert
             )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -52,10 +52,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
         get() = prefs.getString(KEY_SHOP_NAME, DEFAULT_SHOP_NAME).orEmpty()
         set(value) = prefs.edit().putString(KEY_SHOP_NAME, value).apply()
 
-    var shopSubtitle: String
-        get() = prefs.getString(KEY_SHOP_SUBTITLE, DEFAULT_SUBTITLE).orEmpty()
-        set(value) = prefs.edit().putString(KEY_SHOP_SUBTITLE, value).apply()
-
     /**
      * The shop's own counter-sign payload (ถุงเงิน / any Thai QR Payment merchant QR).
      *
@@ -71,11 +67,6 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
     var promptPayId: String
         get() = prefs.getString(KEY_PROMPTPAY_ID, "").orEmpty()
         set(value) = prefs.edit().putString(KEY_PROMPTPAY_ID, value.trim()).apply()
-
-    /** Dots per QR module on the printed receipt — see TicketLine.QrCode. */
-    var qrDotSize: Int
-        get() = prefs.getInt(KEY_QR_DOTS, com.eiamjun.event.printer.DEFAULT_QR_DOTS)
-        set(value) = prefs.edit().putInt(KEY_QR_DOTS, value.coerceIn(1, 8)).apply()
 
     /** Sunmi built-in head, or render to the screen for a phone with no printer. */
     var printerKind: String
@@ -105,10 +96,8 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
         private const val KEY_AUTH_USER = "auth_user"
         private const val KEY_AUTH_PASSWORD = "auth_password"
         private const val KEY_SHOP_NAME = "shop_name"
-        private const val KEY_SHOP_SUBTITLE = "shop_subtitle"
         private const val KEY_MERCHANT_QR = "merchant_qr"
         private const val KEY_PROMPTPAY_ID = "promptpay_id"
-        private const val KEY_QR_DOTS = "qr_dots"
         private const val KEY_PRINTER = "printer_kind"
         private const val KEY_TEXT_BUMP = "text_bump"
         private const val KEY_QUEUE_DOTS = "queue_dots"
@@ -120,6 +109,5 @@ class AppSettings @Inject constructor(@ApplicationContext context: Context) {
         const val DEFAULT_DEVICE_NAME = "pos"
 
         private const val DEFAULT_SHOP_NAME = "ก๋วยเตี๋ยวคลุกเอี้ยมจุ๊น"
-        private const val DEFAULT_SUBTITLE = "ก๋วยเตี๋ยวคลุก · แคปป๊อป"
     }
 }

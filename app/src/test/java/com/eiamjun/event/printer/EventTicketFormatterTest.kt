@@ -112,14 +112,12 @@ class EventTicketFormatterTest {
         val text = render(
             EventTicketFormatter.receipt(
                 shopName = "เอี้ยมจุ๊น",
-                shopSubtitle = "ก๋วยเตี๋ยวคลุก",
                 queueNo = 42,
                 lines = listOf(noodles, crisps)
             )
         )
         println(text)
 
-        assertTrue(text.contains("คิว 42"))
         assertTrue(text.contains("ก๋วยเตี๋ยวคลุก"))
         // The shop's own receipt leaves options off; this one cannot. With a single dish on the
         // menu the options are the only thing telling two lines apart, and a bill reading the same
@@ -135,7 +133,6 @@ class EventTicketFormatterTest {
         val text = render(
             EventTicketFormatter.receipt(
                 shopName = "ร้าน",
-                shopSubtitle = "",
                 queueNo = 1,
                 // Same dish, same options, same price, entered as two taps.
                 lines = listOf(crisps, crisps.copy(id = 2))
@@ -152,23 +149,71 @@ class EventTicketFormatterTest {
     }
 
     @Test
-    fun `a receipt settled in cash carries no payment code`() {
-        val qrOnIt = render(
+    fun `the receipt carries no payment code at all, however the order was paid`() {
+        val byQr = render(
             EventTicketFormatter.receipt(
-                shopName = "ร้าน", shopSubtitle = "", queueNo = 1,
-                lines = listOf(crisps), promptPayId = "0812345678", paidInCash = false
-            )
-        )
-        val cash = render(
-            EventTicketFormatter.receipt(
-                shopName = "ร้าน", shopSubtitle = "", queueNo = 1,
-                lines = listOf(crisps), promptPayId = "0812345678", paidInCash = true
+                shopName = "ร้าน", queueNo = 1,
+                lines = listOf(crisps)
             )
         )
 
-        assertTrue(qrOnIt.contains("สแกนจ่ายเงิน"))
-        // The money is already in the drawer; a code on a paid receipt invites paying twice.
-        assertFalse(cash.contains("สแกนจ่ายเงิน"))
+        // The customer pays at the counter against the screen before this is ever printed, so a
+        // printed code reprints an answered question at about 15mm of paper — and the shop wanted
+        // that paper for the queue number. [paymentQr] still exists and still feeds the payment
+        // sheet; only the printed copy is gone.
+        assertFalse(byQr.contains("สแกนจ่ายเงิน"))
+        assertFalse("and nothing is left asking for an amount", byQr.contains("กรุณาใส่ยอด"))
+        assertTrue(
+            "nor a QR line of any kind",
+            EventTicketFormatter.receipt(shopName = "ร้าน", queueNo = 1, lines = listOf(crisps))
+                .lines.none { it is TicketLine.QrCode }
+        )
+    }
+
+    @Test
+    fun `the receipt's queue number is drawn large, and the same control moves both documents`() {
+        fun banner(dots: Int) = EventTicketFormatter
+            .receipt(shopName = "ร้าน", queueNo = 7, lines = listOf(crisps), dotsOffset = dots)
+            .lines.filterIsInstance<TicketLine.Banner>().single()
+
+        // Drawn, not a doubled font: this is what the kitchen matches a bowl to a queue with,
+        // read off a pile rather than held in the hand.
+        assertEquals("7", banner(0).text)
+        assertEquals(DEFAULT_BANNER_DOTS, banner(0).heightDots)
+        assertTrue("a step down moves it", banner(-2).heightDots < banner(0).heightDots)
+
+        // One lever, both documents — two would be a state nobody could read off ตั้งค่า.
+        val card = EventTicketFormatter.queueTicket("ร้าน", 7, 1, dotsOffset = -2)
+            .lines.filterIsInstance<TicketLine.Banner>().single()
+        assertEquals(card.heightDots, banner(-2).heightDots)
+    }
+
+    @Test
+    fun `the shop name is measured, not doubled, so it cannot break mid-word`() {
+        val head = EventTicketFormatter
+            .receipt(shopName = "ก๋วยเตี๋ยวคลุกเอี้ยมจุ๊น", queueNo = 1, lines = listOf(crisps))
+            .lines.first()
+
+        // `big` halves the columns, leaving nine at this size — and a centred [Text] goes to
+        // `printText`, which breaks by character in a font with no fixed cell. That is how
+        // "เอี๋ยม" lost its "จุ๊น" on the first real queue ticket.
+        assertTrue("the head must be measured", head is TicketLine.Wrapped)
+        assertTrue((head as TicketLine.Wrapped).center)
+    }
+
+    @Test
+    fun `nothing under the shop name lists the menu back to the customer`() {
+        val head = EventTicketFormatter
+            .receipt(shopName = "เอี้ยมจุ๊น", queueNo = 1, lines = listOf(crisps))
+            .lines
+
+        // The subtitle was "ก๋วยเตี๋ยวคลุก · แคปป๊อป" — the whole menu, printed for somebody who
+        // had just bought from it, in the space the queue number now occupies. The line straight
+        // after the name is the rule, so there is nowhere for it to come back without being seen.
+        assertEquals("เอี้ยมจุ๊น", (head[0] as TicketLine.Wrapped).text)
+        assertEquals(TicketLine.Rule, head[1])
+        // And the dish is named once, on its own row, rather than twice.
+        assertEquals(1, render(Ticket(head)).lines().count { it.contains("แคปป๊อป") })
     }
 
     @Test
@@ -189,21 +234,15 @@ class EventTicketFormatterTest {
     }
 
     @Test
-    fun `an unusable merchant QR prints the static code and says to type the amount`() {
-        val text = render(
-            EventTicketFormatter.receipt(
-                shopName = "ร้าน", shopSubtitle = "", queueNo = 1,
-                lines = listOf(crisps),
-                // Not an EMVCo payload at all, so it cannot be edited safely.
-                merchantQr = "NOT-A-QR-PAYLOAD"
-            )
-        )
-        println(text)
+    fun `an unusable merchant QR is handed to the screen as-is, never guessed at`() {
+        // Null from withAmount means "use the static code unchanged", never "guess", and the
+        // sheet says so by printing the amount beside it. One extra tap for the customer beats a
+        // guessed QR by a wide margin.
+        val answer = EventTicketFormatter.paymentQr("NOT-A-QR-PAYLOAD", "", 20)
 
-        // Null from withAmount means "print the static code unchanged", never "guess". One extra
-        // tap for the customer beats a guessed QR by a wide margin.
-        assertTrue(text.contains("NOT-A-QR-PAYLOAD"))
-        assertTrue(text.contains("กรุณาใส่ยอด 20.- บาท"))
+        requireNotNull(answer)
+        assertEquals("NOT-A-QR-PAYLOAD", answer.payload)
+        assertFalse("so the screen has to ask for the amount", answer.carriesAmount)
     }
 
     @Test
@@ -216,12 +255,20 @@ class EventTicketFormatterTest {
     @Test
     fun `each document asks for its own size and cannot be sent at the other's`() {
         val queue = EventTicketFormatter.queueTicket("ร้าน", 1, 1)
-        val receipt = EventTicketFormatter.receipt("ร้าน", "", 1, listOf(crisps))
+        val receipt = EventTicketFormatter.receipt("ร้าน", 1, listOf(crisps))
 
+        // Both land on MEDIUM, and both have to land on a size somebody counted on paper: 20
+        // dots is 18 columns. The receipt's rows are drawn by `ReceiptRowBitmap`, which
+        // calibrates against that count, so an interpolated pair here puts a drawn row at a
+        // different size from the printed lines around it — risk 2 in the shop's own handoff.
         assertEquals(ReceiptFont.MEDIUM, queue.font)
-        // The receipt carries no font of its own: its layout is settled and the driver's default is
-        // it. A ticket that named one could be printed at the other document's size by a screen
-        // that forgot which it was sending.
-        assertEquals(null, receipt.font)
+        assertEquals(ReceiptFont.MEDIUM, receipt.font)
+        listOf(queue, receipt).forEach {
+            val counted = it.font!!
+            assertTrue(
+                "${counted.name} must be a measured pair, not an interpolated one",
+                counted.dots to counted.charsPerLine in listOf(16 to 22, 20 to 18, 24 to 15)
+            )
+        }
     }
 }

@@ -21,10 +21,8 @@ data class SettingsUiState(
     val authUser: String = "",
     val authPassword: String = "",
     val shopName: String = "",
-    val shopSubtitle: String = "",
     val merchantQr: String = "",
     val promptPayId: String = "",
-    val qrDotSize: Int = 3,
     val queueNumberDots: Int = 0,
     val useSunmiPrinter: Boolean = true,
     val nextQueueNo: Int = 1,
@@ -55,10 +53,8 @@ class SettingsViewModel @Inject constructor(
         authUser = settings.authUser,
         authPassword = settings.authPassword,
         shopName = settings.shopName,
-        shopSubtitle = settings.shopSubtitle,
         merchantQr = settings.merchantQr,
         promptPayId = settings.promptPayId,
-        qrDotSize = settings.qrDotSize,
         queueNumberDots = settings.queueNumberDots,
         useSunmiPrinter = settings.printerKind == AppSettings.PRINTER_SUNMI,
         nextQueueNo = queueCounter.peek().number,
@@ -99,11 +95,6 @@ class SettingsViewModel @Inject constructor(
         _state.value = _state.value.copy(shopName = value)
     }
 
-    fun setShopSubtitle(value: String) {
-        settings.shopSubtitle = value
-        _state.value = _state.value.copy(shopSubtitle = value)
-    }
-
     /**
      * Pasting the shop's payment payload.
      *
@@ -129,11 +120,6 @@ class SettingsViewModel @Inject constructor(
     fun setPromptPayId(value: String) {
         settings.promptPayId = value
         _state.value = _state.value.copy(promptPayId = value)
-    }
-
-    fun setQrDotSize(value: Int) {
-        settings.qrDotSize = value
-        _state.value = _state.value.copy(qrDotSize = settings.qrDotSize)
     }
 
     fun setQueueNumberDots(value: Int) {

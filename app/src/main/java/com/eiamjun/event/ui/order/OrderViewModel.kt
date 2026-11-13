@@ -191,13 +191,9 @@ class OrderViewModel @Inject constructor(
         viewModelScope.launch {
             val ticket = EventTicketFormatter.receipt(
                 shopName = settings.shopName,
-                shopSubtitle = settings.shopSubtitle,
                 queueNo = order.order.queueNo,
                 lines = order.lines,
-                merchantQr = settings.merchantQr,
-                promptPayId = settings.promptPayId,
-                qrDotSize = settings.qrDotSize,
-                paidInCash = order.order.payment == com.eiamjun.event.data.Payment.CASH
+                dotsOffset = settings.queueNumberDots
             )
             print(ticket)
         }

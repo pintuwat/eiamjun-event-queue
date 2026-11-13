@@ -22,7 +22,9 @@ answer — every line measured and centred, the size one counted step down, and 
 the footer. See **Printing**. The shop runs ขนาดเลขคิวบนบัตร at −2, so `TicketLine.Banner`'s
 chosen 120 dots was close and the control is what settled it, as intended.
 
-⚠️ **0.3.0 itself has not met paper.** Print one sample from ตั้งค่า before the event.
+⚠️ **Neither 0.3.0's queue ticket nor 0.5.0's receipt has met paper.** Print one of each from
+ตั้งค่า before the event — the receipt especially, because 0.5.0 moved its size *and* put a drawn
+banner on it, and the shop's longest row now measures exactly 18 columns of 18.
 
 ⚠️ **The seeded prices are placeholders** (50 / 20 / +10 / +10). The dishes and options are what the
 owner described; the numbers were never given. `SeedData` seeds only an empty database, and
@@ -196,6 +198,51 @@ reached the kitchen server. ⚠️ Worth knowing for the next time: a staged `re
 `waiting` within seconds, because `poll()` takes the kitchen's list as the whole truth for that
 flag. That is the documented behaviour and not a fault, but it means the ready card cannot be seen
 this way at all.
+
+**The receipt is the kitchen's slip now, and the layout says so** (0.5.0). The event's kitchen
+had been reading orders off an iPad; the shop started handing the printed receipt to it instead,
+and asked for the one thing that makes that work — *which queue is this bowl for*, answerable from
+a pile at arm's length. So the queue number is a `TicketLine.Banner`, the same drawn digit the
+customer's card carries, moved by the same ตั้งค่า control. It had been `คิว 42` in an ordinary
+padded row, which is the right size for somebody holding their own slip and useless on a spike.
+
+Three things came off to pay for the room, all asked for:
+
+| Gone | Why it was there, and why it is not |
+|---|---|
+| The subtitle | `ก๋วยเตี๋ยวคลุก · แคปป๊อป` — the whole menu, printed for somebody who had just bought from it |
+| The printed payment QR | ~15mm of paper reprinting an answered question: the customer pays at the counter against the screen before this is ever printed |
+| The duplicated time | `คิว 42 · 13:19` and `13/11/2569 13:19` underneath it |
+
+⚠️ **The setting goes with the line it drew.** `shopSubtitle` and `qrDotSize` are deleted, not
+left unread — a field in ตั้งค่า that changes nothing on paper is worse than no field, and both
+would have sat there looking like they still did something. `AppSettings.merchantQr` and
+`promptPayId` stay, and so does `paymentQr()`: the payment **sheet** still draws a code, and that
+is how the money is taken. ⚠️ A receipt handed over *before* payment would now carry no way to
+pay. The order flow never does that, and anything that changes it has to answer this.
+
+**+2 dots, landing on a counted pair.** The driver's default is `ReceiptFont.RECEIPT` — 18 dots,
+and its 20 columns is **interpolated**. The receipt's item rows are drawn by `ReceiptRowBitmap`,
+which calibrates against that count, so a size nobody counted puts a drawn row at a different
+size from the printed lines beside it. `MEDIUM` is 20 dots and 18 columns, counted on paper, and
+is what the queue ticket settled on after the first real print — the two documents now read alike.
+
+⚠️ **18 columns is exactly what the shop's longest row needs.** `ก๋วยเตี๋ยวคลุก x2` with `120.-`
+measures 18 of 18 (tone marks take no column). At ten of one dish — `x10` with `600.-` — it is 19,
+and `KeyValue` trims from the end, so the **name** loses a character while the count is protected
+by `leftTail`. On the Sunmi the row is measured in dots rather than counted, so it trims only if
+it genuinely overruns; the column arithmetic is the warning, not the verdict.
+
+**The shop's name is `Wrapped`, not `big`.** `big` doubles the width and so halves the columns —
+nine at this size — and a centred `Text` goes to `printText`, which breaks by character in a font
+with no fixed cell. That is exactly how "เอี๋ยม" lost its "จุ๊น" on the first real queue ticket;
+the receipt had the same bug waiting and the size change would have set it off. Measured and
+centred it fits one line, and the biggest thing on the paper is the number, which is the point.
+
+**One lever moves both queue numbers** (`bannerDots`). ตั้งค่า reads
+**ขนาดเลขคิว (บัตรคิว + ใบเสร็จ)**. Two controls would be a state nobody could read off the
+settings screen, and two copies of one number is the drift this file keeps recording. Split them
+only if the kitchen's slip and the customer's card genuinely want different sizes.
 
 ---
 

@@ -57,13 +57,7 @@ object EventTicketFormatter {
             add(TicketLine.Wrapped(shopName, bold = true, center = true))
             add(TicketLine.Rule)
             add(TicketLine.Wrapped("คิวที่", center = true))
-            add(
-                TicketLine.Banner(
-                    queueNo.toString(),
-                    heightDots = (DEFAULT_BANNER_DOTS + dotsOffset * BANNER_DOTS_PER_STEP)
-                        .coerceAtLeast(40)
-                )
-            )
+            add(TicketLine.Banner(queueNo.toString(), heightDots = bannerDots(dotsOffset)))
             add(TicketLine.Rule)
             // How many bowls, never which ones. The count is what stops a two-order customer
             // walking off with one bag, and it gives away nothing the queue has to stop for.
@@ -91,45 +85,69 @@ object EventTicketFormatter {
     )
 
     /**
-     * The receipt, printed when the customer collects and asks for one.
+     * The receipt — and, from 0.5.0, the slip the kitchen matches food to a queue with.
      *
-     * The queue number is on it at the ordinary size — it is how a slip is matched back to a bag,
-     * not the point of the paper, and the owner asked for it that way in those words.
+     * That second job is what the layout now serves, at the shop's word after a service: the
+     * number is a [TicketLine.Banner], the same drawn digit the customer's card carries and
+     * moved by the same control, because the question being asked of this paper is "which queue
+     * is this bowl for" and it is answered from a pile at arm's length. It used to be
+     * `คิว 42` in an ordinary row, sized for someone holding the slip — which is what it was for
+     * when the kitchen read its orders off an iPad.
      *
-     * The options **are** printed here, unlike on the shop's own receipt, and they get **a line of
+     * Three things came off to pay for it, all at the shop's request:
+     *
+     * - **The subtitle.** `ก๋วยเตี๋ยวคลุก · แคปป๊อป` under the shop's name listed the whole menu
+     *   to somebody who had just bought from it. The setting went with the line — a field in
+     *   ตั้งค่า that changes nothing on paper is worse than no field.
+     * - **The payment QR.** The customer pays at the counter against the screen before this is
+     *   ever printed, so the code was reprinting an answered question at about 15mm of paper.
+     *   ⚠️ [paymentQr] stays and is still what the payment sheet draws — this removes the
+     *   printed copy only. A receipt handed over **before** payment would now carry no way to
+     *   pay, which the order flow does not do and would have to be rethought if it ever did.
+     * - **The duplicated time.** `คิว 42 · 13:19` and then `13/11/2569 13:19` under it. The full
+     *   date says both and is what makes the paper a receipt.
+     *
+     * The shop's name is [TicketLine.Wrapped] rather than `big`, which is the same correction the
+     * queue ticket needed: `big` halves the columns, so at this size the name had nine to sit in
+     * and `printText` would have broken it by character — "เอี๋ยม" from its "จุ๊น". Measured and
+     * centred it fits on one line, and the biggest thing on the paper is the number, which is the
+     * point of the change.
+     *
+     * The options **are** printed, unlike on the shop's own receipt, and they get **a line of
      * their own**. Both halves of that are forced:
      *
      * The shop leaves options off because its customer chose them a minute ago and twenty columns
      * is barely enough for the dish and the price. Here there is one dish, so the options are the
      * only thing distinguishing two lines on a bill — "ก๋วยเตี๋ยวคลุก" twice at different prices
-     * is unreadable.
+     * is unreadable. And now the kitchen reads this slip, which makes them the operative words on
+     * it rather than a courtesy.
      *
      * And they cannot share the dish's row. A [TicketLine.KeyValue] is **trimmed from the end** to
      * keep the price on the paper's right edge, and "ก๋วยเตี๋ยวคลุก เส้นหมี่ · เผ็ดน้อย ·
      * เพิ่มแคปป๊อป (ไม่ใส่ถั่ว)" is three times twenty columns — so everything that matters got cut
-     * and the row read as a plain bowl at an odd price. The shop's rule against a second line was
-     * about *its* receipt, where the kitchen slip carries the options instead; this event prints
-     * no kitchen slip at all.
+     * and the row read as a plain bowl at an odd price.
+     *
+     * @param dotsOffset ตั้งค่า's queue-number control, shared with [queueTicket]. One lever moves
+     *   both numbers: the shop has one idea of how big a queue number should be, and two controls
+     *   would be a state nobody could read off the settings screen. Split them if the kitchen's
+     *   slip and the customer's card ever genuinely want different sizes.
      */
     fun receipt(
         shopName: String,
-        shopSubtitle: String,
         queueNo: Int,
         lines: List<OrderLineEntity>,
-        merchantQr: String = "",
-        promptPayId: String = "",
-        qrDotSize: Int = DEFAULT_QR_DOTS,
-        paidInCash: Boolean = false,
+        dotsOffset: Int = 0,
         printedAt: Long = System.currentTimeMillis()
     ): Ticket {
         val total = lines.sumOf { it.unitPrice * it.qty }
         return Ticket(
             buildList {
-                add(TicketLine.Text(shopName, bold = true, center = true, big = true))
-                if (shopSubtitle.isNotBlank()) add(TicketLine.Text(shopSubtitle, center = true))
-                add(TicketLine.KeyValue("คิว $queueNo", EventDay.clock(printedAt), columns = HEADER_COLUMNS))
-                add(TicketLine.Text(EventDay.thaiDateTime(printedAt)))
+                add(TicketLine.Wrapped(shopName, bold = true, center = true))
                 add(TicketLine.Rule)
+                add(TicketLine.Wrapped("คิวที่", center = true))
+                add(TicketLine.Banner(queueNo.toString(), heightDots = bannerDots(dotsOffset)))
+                add(TicketLine.Rule)
+                add(TicketLine.Text(EventDay.thaiDateTime(printedAt)))
 
                 // Grouped by everything that will be printed, the price included. Two rows that
                 // read identically at the same price look like the till having rung it up twice;
@@ -155,24 +173,16 @@ object EventTicketFormatter {
                     }
                 add(TicketLine.Rule)
                 add(TicketLine.KeyValue("รวม", "$total.-", bold = true))
-
-                // No QR on a bill already settled in cash: the money is in the drawer, and a
-                // payment code on a paid receipt is an invitation to pay twice.
-                if (!paidInCash) {
-                    val qr = paymentQr(merchantQr, promptPayId, total)
-                    if (qr != null) {
-                        add(TicketLine.Text("สแกนจ่ายเงิน", bold = true, center = true))
-                        add(TicketLine.QrCode(qr.payload, moduleSize = qrDotSize))
-                        // Only when the code could not be given the amount. With the amount in it
-                        // the phone fills the number in and รวม is three lines up.
-                        if (!qr.carriesAmount) {
-                            add(TicketLine.Text("กรุณาใส่ยอด $total.- บาท", center = true))
-                        }
-                    }
-                }
                 add(TicketLine.Text("ขอบคุณที่อุดหนุน", center = true))
                 add(TicketLine.FeedAndCut)
-            }
+            },
+            // Two dots up, which is the shop's "+2 scale" and lands on a pair somebody counted:
+            // 20 dots is 18 columns. The driver's own default is [ReceiptFont.RECEIPT] at 18
+            // dots, whose 20 columns is **interpolated** — and the item rows here are drawn by
+            // `ReceiptRowBitmap`, which calibrates against that count, so staying on a counted
+            // pair is not tidiness. MEDIUM is also what the queue ticket settled on after the
+            // first real print, so the two documents now read at one size.
+            font = ReceiptFont.MEDIUM
         )
     }
 
@@ -209,6 +219,16 @@ object EventTicketFormatter {
         }
         return null
     }
+
+    /**
+     * How tall the queue number is drawn, for whichever document is asking.
+     *
+     * Both the card and the receipt come through here, so ตั้งค่า cannot move one and leave the
+     * other behind — which is the shape of bug this repo keeps recording, two copies of one
+     * number drifting apart.
+     */
+    private fun bannerDots(dotsOffset: Int): Int =
+        (DEFAULT_BANNER_DOTS + dotsOffset * BANNER_DOTS_PER_STEP).coerceAtLeast(40)
 
     /** One step of ตั้งค่า's queue-number control, in dots. */
     private const val BANNER_DOTS_PER_STEP = 20

@@ -6,7 +6,6 @@ import com.eiamjun.event.data.AppSettings
 import com.eiamjun.event.data.OrderRepository
 import com.eiamjun.event.data.OrderStatus
 import com.eiamjun.event.data.OrderWithLines
-import com.eiamjun.event.data.Payment
 import com.eiamjun.event.net.KitchenSync
 import com.eiamjun.event.printer.EventTicketFormatter
 import com.eiamjun.event.printer.PrinterRouter
@@ -80,13 +79,9 @@ class QueueViewModel @Inject constructor(
             print(
                 EventTicketFormatter.receipt(
                     shopName = settings.shopName,
-                    shopSubtitle = settings.shopSubtitle,
                     queueNo = order.order.queueNo,
                     lines = order.lines,
-                    merchantQr = settings.merchantQr,
-                    promptPayId = settings.promptPayId,
-                    qrDotSize = settings.qrDotSize,
-                    paidInCash = order.order.payment == Payment.CASH
+                    dotsOffset = settings.queueNumberDots
                 )
             )
         }
