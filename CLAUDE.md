@@ -128,6 +128,26 @@ order off the iPad, and a ticket listing the food invites the customer to check 
 which is the queue this app exists to shorten. The item **count** is on it, because that is what
 stops a two-bag customer walking off with one.
 
+**ตั้งค่า has no field for the payment payload — a status line only** (0.3.1). It had one, and the
+shop asked for it gone the first day they looked at it. The reasoning is the till's, unchanged: the
+merchant QR is the string that decides where the money lands, it is pasted once and scan-tested
+once, and a text box sitting in ตั้งค่า invites an edit that sends an evening's takings somewhere
+else with nothing on screen to say so. The line says whether one is set and how long it is, which
+is what anybody actually needs to read off that screen.
+
+The cost is accepted rather than unnoticed: this app syncs nothing, so the shop's till can pull a
+QR from the server and this one cannot — changing the payload here means writing
+`shared_prefs/eiamjun-event-settings.xml` over ADB, which is how it was set in the first place.
+`SettingsViewModel.setMerchantQr` is kept and uncalled, because the way back is a field that calls
+it and nothing else.
+
+⚠️ **The payload carries no merchant name.** Decoded, it is tags 00/01/30/53/58/62/63 — no tag 59
+and no 60 — so the name a banking app shows is the bank resolving Biller ID `010753700088205`
+(Krungthai, i.e. ถุงเงิน) and the merchant reference inside tag 30. Neither this app nor the shop's
+till can influence what that name reads as, and a scan showing "ถุงเงิน" is not evidence of a wrong
+payload. What a scan does prove is that the money would reach the right merchant, which is the only
+thing worth testing.
+
 ---
 
 ## Queue numbers

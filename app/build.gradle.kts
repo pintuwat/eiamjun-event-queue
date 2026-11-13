@@ -19,8 +19,8 @@ android {
         // Sunmi V1s ships Android 6.0 (API 23), V2 ships Android 7.1 (API 25).
         minSdk = 23
         targetSdk = 34
-        versionCode = 3
-        versionName = "0.3.0-ticketfit"
+        versionCode = 4
+        versionName = "0.3.1-noqrfield"
 
         vectorDrawables { useSupportLibrary = true }
     }

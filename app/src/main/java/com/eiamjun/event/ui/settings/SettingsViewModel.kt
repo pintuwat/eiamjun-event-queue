@@ -113,6 +113,14 @@ class SettingsViewModel @Inject constructor(
      * with a real banking app before taking a single baht. The shop's till learned that a QR can
      * look perfect and resolve to nothing.
      */
+    /**
+     * Kept although ตั้งค่า no longer calls it — the screen shows the payload as a status line and
+     * offers no way to type one (see `SettingsScreen`).
+     *
+     * Not deleted, because the way back is a field calling this and nothing else; re-deriving it
+     * would be rewriting working code to save four lines. Anything that does call it is exposing
+     * the payload to an edit again, which is the decision being protected here.
+     */
     fun setMerchantQr(value: String) {
         settings.merchantQr = value
         _state.value = _state.value.copy(merchantQr = value)

@@ -159,17 +159,21 @@ fun SettingsScreen(
 
             Divider()
             SectionTitle("รับเงิน")
-            OutlinedTextField(
-                value = state.merchantQr,
-                onValueChange = viewModel::setMerchantQr,
-                label = { Text("QR ร้านค้า (ถุงเงิน / Thai QR)") },
-                modifier = Modifier.fillMaxWidth()
-            )
+            // ⚠️ **No field for the payload, deliberately.** The shop's own till reached this
+            // first and the reasoning carries over unchanged: it is the string that decides where
+            // the money lands, it is pasted once and scan-tested once, and a text box sitting in
+            // ตั้งค่า invites an edit that sends an evening's takings somewhere else with nothing
+            // on screen to say so. A status line can be read and cannot be typed into.
+            //
+            // The cost is real and accepted: this app syncs nothing, so changing the payload now
+            // means writing shared_prefs over ADB. That is the right price for a string nobody
+            // should be editing in a hurry at a stall.
             Text(
                 if (state.merchantQr.isBlank()) {
-                    "ยังไม่ได้ตั้ง — ยังไม่มี QR ขึ้นจอและไม่พิมพ์ลงใบเสร็จ"
+                    "QR ร้านค้า · ยังไม่ได้ตั้ง — ยังไม่มี QR ขึ้นจอและไม่พิมพ์ลงใบเสร็จ"
                 } else {
-                    "ตั้งแล้ว (${state.merchantQr.length} ตัวอักษร) · ⚠️ ต้องสแกนทดสอบด้วยแอปธนาคารจริงก่อนใช้งาน"
+                    "QR ร้านค้า · ตั้งแล้ว (${state.merchantQr.length} ตัวอักษร) · " +
+                        "⚠️ ต้องสแกนทดสอบด้วยแอปธนาคารจริงก่อนใช้งาน"
                 },
                 color = if (state.merchantQr.isBlank()) Alert else Basil
             )
