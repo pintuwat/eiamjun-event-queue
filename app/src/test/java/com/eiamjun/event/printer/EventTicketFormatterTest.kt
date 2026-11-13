@@ -63,6 +63,37 @@ class EventTicketFormatterTest {
     }
 
     @Test
+    fun `every line of the queue ticket is measured, not handed to the printer to break`() {
+        val ticket = EventTicketFormatter.queueTicket("ก๋วยเตี๋ยวคลุกเอี้ยมจุ๊น", 42, 2)
+
+        // A centred Text goes through `printText`, which breaks by character in a font that has no
+        // fixed cell — the shop's first real ticket came back with "เอี้ยม" split from "จุ๊น" and
+        // "มารับอาหาร" split as "มารั" / "บอาหาร". There is no line on this document short enough
+        // to be worth the risk, so the rule is all of them or none.
+        assertTrue(
+            "no TicketLine.Text on the queue ticket — it is the one that the printer breaks",
+            ticket.lines.none { it is TicketLine.Text }
+        )
+        val wrapped = ticket.lines.filterIsInstance<TicketLine.Wrapped>()
+        assertEquals("shop name, คิวที่, and the two footer lines", 4, wrapped.size)
+        assertTrue("and the whole ticket is centred", wrapped.all { it.center })
+    }
+
+    @Test
+    fun `the footer has somewhere to break, because Thai writes no spaces`() {
+        val footer = EventTicketFormatter.queueTicket("ร้าน", 1, 1)
+            .lines.filterIsInstance<TicketLine.Wrapped>()
+            .last()
+
+        // Measuring a line only tells you honestly whether it fits. "รอเรียกคิวแล้วมารับอาหาร" is
+        // one token of twenty columns, so on an eighteen-column slip it is split by measured
+        // characters — a mid-word break arrived at carefully. The space is the whole fix, and
+        // removing it puts the fault straight back.
+        assertTrue("the phrase still reads", footer.text.replace(" ", "") == "รอเรียกคิวแล้วมารับอาหาร")
+        assertTrue("and carries a break opportunity", footer.text.contains(" "))
+    }
+
+    @Test
     fun `the queue number's size follows the setting, in both directions`() {
         val smaller = EventTicketFormatter.queueTicket("ร้าน", 1, 1, dotsOffset = -2)
             .lines.filterIsInstance<TicketLine.Banner>().first().heightDots
@@ -187,7 +218,7 @@ class EventTicketFormatterTest {
         val queue = EventTicketFormatter.queueTicket("ร้าน", 1, 1)
         val receipt = EventTicketFormatter.receipt("ร้าน", "", 1, listOf(crisps))
 
-        assertEquals(ReceiptFont.LARGE, queue.font)
+        assertEquals(ReceiptFont.MEDIUM, queue.font)
         // The receipt carries no font of its own: its layout is settled and the driver's default is
         // it. A ticket that named one could be printed at the other document's size by a screen
         // that forgot which it was sending.

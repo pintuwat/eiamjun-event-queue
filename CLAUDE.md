@@ -16,10 +16,13 @@ is what it means.
 Sunmi V2 Pro** over USB: order → payment QR → queue ticket → kitchen board →
 พร้อมส่ง → back on the till, and the board's undo back the other way.
 
-⚠️ **Never printed on paper.** The driver is the shop's proven `SunmiPrinterAdapter`, copied across
-unchanged, so Thai and the price column are not in question. What is: the **queue number**, which
-is a new line type (`TicketLine.Banner`) drawn at a chosen 120 dots. Nobody has met this paper.
-ตั้งค่า → ขนาดเลขคิวบนบัตร moves it without a build, which is the honest way to settle a size.
+✅ **Printed on paper 2026-11-13**, on the shop's own V2 Pro, and the first ticket paid for itself:
+the queue number was right and the text around it broke mid-word twice. 0.3.0-ticketfit is the
+answer — every line measured and centred, the size one counted step down, and a phrase space in
+the footer. See **Printing**. The shop runs ขนาดเลขคิวบนบัตร at −2, so `TicketLine.Banner`'s
+chosen 120 dots was close and the control is what settled it, as intended.
+
+⚠️ **0.3.0 itself has not met paper.** Print one sample from ตั้งค่า before the event.
 
 ⚠️ **The seeded prices are placeholders** (50 / 20 / +10 / +10). The dishes and options are what the
 owner described; the numbers were never given. `SeedData` seeds only an empty database, and
@@ -90,6 +93,35 @@ and a `KeyValue` row is **trimmed from the end** to keep the price on the right 
 "ก๋วยเตี๋ยวคลุก เส้นหมี่ · เผ็ดน้อย · เพิ่มแคปป๊อป (ไม่ใส่ถั่ว)" lost everything that mattered and
 read as a plain bowl at an odd price. The shop's rule against a second line was about *its*
 receipt, where the kitchen slip carries the options; this event prints no kitchen slip at all.
+
+**The queue ticket is measured end to end, and the size had to come down to let it be.**
+✅ First printed 2026-11-13, and it came back with two words broken across lines:
+"ก๋วยเตี๋ยวคลุกเอี๋ยม / จุ๊น" and "รอเรียกคิวแล้วมารั / บอาหาร". Both lines were `TicketLine.Text`
+with `center = true`, which is `printText`, which breaks by character in a font with no fixed cell
+— the shop's kitchen slip had the identical fault and `TicketLine.Wrapped` is what fixed it there.
+What did not exist was a **centred** measured line: `Text` could centre and could not measure,
+`wrappedLeft` could measure and had nothing to say about where the line sat. So
+`ReceiptRowBitmap.wrappedCenter` centres each line on its own measured width, the way [row] puts a
+price at `paper - width(price)`, and every line on the ticket is `Wrapped` now. The test pins
+*none* of them being `Text`, because one short line looks safe right up until the shop renames
+itself.
+
+⚠️ **Measuring alone could not have fixed the footer, because Thai writes no spaces between
+words.** "รอเรียกคิวแล้วมารับอาหาร" is one unbroken token of twenty printed columns: measuring it
+says honestly that it does not fit and then splits it by measured characters, which is a mid-word
+break arrived at carefully. The fix is a **phrase space** written into the string where a Thai
+writer would put one — "รอเรียกคิว แล้วมารับอาหาร" — which is the only thing on that line a wrap
+can land on. Any wording added to this ticket needs the same treatment, and the test pins the
+space.
+
+**And the size is half the answer** (`ReceiptFont.MEDIUM`, down from `LARGE` at the shop's word,
+"ขนาดตัวอักษรใหญ่ไปหน่อย"). 24 dots is 15 columns and the shop's own name measures 16, so at that
+size it could only ever wrap — no amount of typesetting makes a line fit paper it is wider than.
+20→18 is the next pair **counted on paper**, which is the only kind this printer may be given, and
+at 18 the name sits on one line. The queue number is untouched by any of it: a `Banner` is drawn
+to a height in dots and has no font to be sized by, which is why that one is the setting
+(ขนาดเลขคิวบนบัตร, the shop runs it at −2) and the body text is not — they asked for exactly that
+split.
 
 **Nothing but the number on the queue ticket** — no dish names, no prices. The kitchen reads the
 order off the iPad, and a ticket listing the food invites the customer to check it at the counter,

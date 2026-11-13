@@ -78,10 +78,12 @@ object EscPos {
             // the one renderer where the Sunmi's measured wrapping would be the wrong answer.
             is TicketLine.Wrapped -> {
                 bold(out, line.bold)
+                align(out, center = line.center)
                 TicketText.wrapWords(line.text, charsPerLine).forEach {
                     text(out, it)
                     out.write(0x0A)
                 }
+                align(out, center = false)
                 bold(out, false)
             }
             is TicketLine.KeyValue -> {

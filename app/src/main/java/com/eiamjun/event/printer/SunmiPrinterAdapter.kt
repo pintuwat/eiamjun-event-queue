@@ -134,11 +134,14 @@ class SunmiPrinterAdapter(
             // line by character in a font with no fixed cell, which on the kitchen slip put a
             // lone "ก" under "ไม่ผั". Measured here in the font that draws it, broken at a
             // space, with a gap narrower than the proportional space the shop found too wide.
-            is TicketLine.Wrapped -> rows.wrappedLeft(
-                text = ticketLine.text,
-                bold = ticketLine.bold,
-                tall = textSize.allTall
-            ).forEach { line.printBitmap(it, bitmapStyle()) }
+            is TicketLine.Wrapped -> {
+                val drawn = if (ticketLine.center) {
+                    rows.wrappedCenter(ticketLine.text, ticketLine.bold, textSize.allTall)
+                } else {
+                    rows.wrappedLeft(ticketLine.text, ticketLine.bold, textSize.allTall)
+                }
+                drawn.forEach { line.printBitmap(it, bitmapStyle()) }
+            }
 
             // Drawn, not padded. Four ways of padding a price to the right edge have been tried
             // on this hardware and all four failed, for one underlying reason: nothing here has a

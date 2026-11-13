@@ -67,8 +67,25 @@ sealed class TicketLine {
      *
      * Drivers with a real fixed cell (ESC/POS firmware fonts) wrap it by character count, which
      * is correct there.
+     *
+     * ⚠️ **Thai writes no spaces between words**, so this cannot save a line that is one unbroken
+     * token: "รอเรียกคิวแล้วมารับอาหาร" has nowhere to break and is split by measured characters,
+     * which is a mid-word break however carefully it is measured. The fix for such a line is to
+     * make it fit — or to write the phrase space into it where a break would read naturally.
      */
-    data class Wrapped(val text: String, val bold: Boolean = false) : TicketLine()
+    data class Wrapped(
+        val text: String,
+        val bold: Boolean = false,
+        /**
+         * Centred instead of left-aligned.
+         *
+         * This is the combination the queue ticket needed and nothing had: a centred line that is
+         * still measured. [Text] centres but is handed to `printText`, which breaks by character
+         * in a font with no fixed cell — which is how "มารับอาหาร" came off the paper as "มารั"
+         * over "บอาหาร".
+         */
+        val center: Boolean = false
+    ) : TicketLine()
 
     /**
      * @param columns pad this row to a narrower width than the rest of the ticket. Only needed

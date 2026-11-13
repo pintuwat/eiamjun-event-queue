@@ -31,7 +31,9 @@ class PreviewPrinter(
                     // measures — close enough for a preview, and the alternative is a preview
                     // that cannot show a wrap at all.
                     is TicketLine.Wrapped ->
-                        TicketText.wrapWords(line.text, charsPerLine).forEach { appendLine(it) }
+                        TicketText.wrapWords(line.text, charsPerLine).forEach {
+                            appendLine(if (line.center) TicketText.center(it, charsPerLine) else it)
+                        }
                     is TicketLine.KeyValue ->
                         appendLine(
                             TicketText.padKeyValue(line.left + line.leftTail, line.right, line.columns ?: charsPerLine)

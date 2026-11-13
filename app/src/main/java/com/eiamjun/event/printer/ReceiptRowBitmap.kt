@@ -132,7 +132,24 @@ class ReceiptRowBitmap(
      *
      * @return one bitmap per printed line, in order.
      */
-    fun wrappedLeft(text: String, bold: Boolean = false, tall: Boolean = false): List<Bitmap> {
+    fun wrappedLeft(text: String, bold: Boolean = false, tall: Boolean = false): List<Bitmap> =
+        wrapped(text, bold, tall, center = false)
+
+    /**
+     * The same typesetting, centred — the queue ticket's lines.
+     *
+     * Centred and measured had to exist together. `printText` can centre, and it is `printText`
+     * that breaks a line by character; [wrappedLeft] measures, and it had nothing to say about
+     * where the line sits on the paper. A queue ticket is centred end to end, so every line on it
+     * was going through the one path that could not be trusted with a long word.
+     *
+     * Each line is centred on its own measured width, not on a column count — the same reason
+     * [row] puts the price at `paper - width(price)` rather than padding to it.
+     */
+    fun wrappedCenter(text: String, bold: Boolean = false, tall: Boolean = false): List<Bitmap> =
+        wrapped(text, bold, tall, center = true)
+
+    private fun wrapped(text: String, bold: Boolean, tall: Boolean, center: Boolean): List<Bitmap> {
         paint.isFakeBoldText = bold
         val gap = paint.measureText(" ") * WORD_GAP
         val words = text.split(" ").filter { it.isNotEmpty() }.flatMap { splitToFit(it) }
@@ -156,17 +173,23 @@ class ReceiptRowBitmap(
         if (current.isNotEmpty()) lines.add(current)
 
         // isFakeBoldText is set on the shared paint above, so draw while it still holds.
-        return lines.map { draw(it, gap, tall) }
+        return lines.map { draw(it, gap, tall, center) }
     }
 
-    private fun draw(words: List<String>, gap: Float, tall: Boolean): Bitmap {
+    private fun draw(words: List<String>, gap: Float, tall: Boolean, center: Boolean): Bitmap {
+        val widths = words.map { paint.measureText(it) }
+        // Measured, never counted: the line is as wide as the glyphs that will be drawn plus the
+        // gaps between them, and half of whatever the paper has left over puts it in the middle.
+        // coerceAtLeast(0) because a line wider than the paper has already been split to fit and a
+        // negative start would push its first letter off the left edge.
+        val lineWidth = widths.sum() + gap * (words.size - 1).coerceAtLeast(0)
         val bitmap = Bitmap.createBitmap(paperDots, rowHeight, Bitmap.Config.ARGB_8888)
         Canvas(bitmap).apply {
             drawColor(Color.WHITE)
-            var x = 0f
-            for (word in words) {
+            var x = if (center) ((paperDots - lineWidth) / 2f).coerceAtLeast(0f) else 0f
+            words.forEachIndexed { i, word ->
                 drawText(word, x, baseline, paint)
-                x += paint.measureText(word) + gap
+                x += widths[i] + gap
             }
         }
         return if (tall) Bitmap.createScaledBitmap(bitmap, paperDots, rowHeight * 2, false) else bitmap

@@ -49,9 +49,14 @@ object EventTicketFormatter {
         dotsOffset: Int = 0
     ): Ticket = Ticket(
         buildList {
-            add(TicketLine.Text(shopName, bold = true, center = true))
+            // Every line on this ticket is [Wrapped], not [Text]: it is centred end to end, and a
+            // centred Text goes to `printText`, which breaks by character in a font with no fixed
+            // cell. That is what cut "ก๋วยเตี๋ยวคลุกเอี๋ยม" from its "จุ๊น" on the shop's first
+            // real ticket. Measured here in the font that draws it, the same conclusion the price
+            // column and the shop's kitchen slip both reached.
+            add(TicketLine.Wrapped(shopName, bold = true, center = true))
             add(TicketLine.Rule)
-            add(TicketLine.Text("คิวที่", center = true))
+            add(TicketLine.Wrapped("คิวที่", center = true))
             add(
                 TicketLine.Banner(
                     queueNo.toString(),
@@ -64,14 +69,25 @@ object EventTicketFormatter {
             // walking off with one bag, and it gives away nothing the queue has to stop for.
             add(TicketLine.KeyValue("$itemCount รายการ", EventDay.clock(at), columns = HEADER_COLUMNS))
             add(TicketLine.Blank)
-            add(TicketLine.Text("กรุณาเก็บบัตรนี้ไว้", bold = true, center = true))
-            add(TicketLine.Text("รอเรียกคิวแล้วมารับอาหาร", center = true))
+            add(TicketLine.Wrapped("กรุณาเก็บบัตรนี้ไว้", bold = true, center = true))
+            // ⚠️ The space is load-bearing, and it is the only thing here that can break this
+            // line. Thai writes none between words, so "รอเรียกคิวแล้วมารับอาหาร" is one unbroken
+            // token twenty columns wide: measuring it tells you honestly that it does not fit and
+            // then splits it mid-word anyway, which is "มารั" over "บอาหาร" again. A phrase space
+            // where a Thai writer would put one gives the wrap somewhere to land. Any wording
+            // added to this ticket needs the same treatment.
+            add(TicketLine.Wrapped("รอเรียกคิว แล้วมารับอาหาร", center = true))
             add(TicketLine.FeedAndCut)
         },
-        // The largest font this printer has a measured column count for. The banner is drawn and
-        // ignores it; the few printed lines around it are short, and large suits a ticket that is
-        // read at arm's length.
-        font = ReceiptFont.LARGE
+        // One measured step down from the largest size, at the shop's word after the first real
+        // ticket: "ขนาดตัวอักษรใหญ่ไปหน่อย". 20 dots is 18 columns and 24 was 15 — both counted on
+        // paper, which is the only kind of pair this printer may be given (risk 2 in the shop's
+        // own handoff). 18 is what lets the shop's name sit on one line at all: it measures 16
+        // columns, so at 15 it could only ever wrap.
+        //
+        // The queue number is unaffected — a [TicketLine.Banner] is drawn to a height in dots and
+        // has no font to be sized by, which is why that one is the setting and this one is not.
+        font = ReceiptFont.MEDIUM
     )
 
     /**
