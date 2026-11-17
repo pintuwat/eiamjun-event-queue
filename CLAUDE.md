@@ -333,6 +333,14 @@ One page, five endpoints, no framework and no build step. iPad on a stand, read 
 tapped with a wet hand — every size on it is larger than a web page's would be, and the พร้อมส่ง
 button is 60px rather than 44.
 
+**The card says "คิว" in front of the number**, at the shop's word. A bare 52px numeral on a
+board that also carries `2×` quantities and a `3` beside กำลังทำ is read as one of those, and the
+two documents the staff match it against — the customer's card and the printed receipt — both say
+the word. The label is **inside** `.queue` rather than a third item in `.card-top`: that row's
+12px gap is spacing between things, and at that distance it read as two of them. So it keeps a
+6px gap of its own and inherits the green a ready card turns the number, instead of being left
+orange beside it.
+
 **A dropped poll redraws the last picture rather than blanking the board.** An empty kitchen and an
 unreachable server look identical on a screen, and only one of them means "nothing to cook" — so
 the link state is said in words at the top.

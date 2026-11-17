@@ -96,9 +96,17 @@ function card(order, isReady) {
 
   const top = document.createElement('div');
   top.className = 'card-top';
+  // "คิว" in front of the number, at the shop's word after a service. A bare 52px numeral on a
+  // board that also carries counts and quantities is read as one of those — and the two documents
+  // the staff match it against, the card and the receipt, both say the word. The label is part of
+  // the number rather than a separate element in `.card-top`, so it keeps its tight gap and
+  // inherits the green a ready card turns the number.
   const queue = document.createElement('span');
   queue.className = 'queue';
-  queue.textContent = String(order.queueNo);
+  const queueLabel = document.createElement('span');
+  queueLabel.className = 'queue-label';
+  queueLabel.textContent = 'คิว';
+  queue.append(queueLabel, String(order.queueNo));
   const waited = document.createElement('span');
   waited.className = 'waited' + (late ? ' late' : '');
   waited.textContent = isReady ? 'พร้อมแล้ว' : `รอ ${minutes} นาที`;

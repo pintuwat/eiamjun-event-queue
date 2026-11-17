@@ -152,6 +152,19 @@ body {
   font-weight: 700;
   color: var(--price);
   line-height: 1;
+  /* The label and the number are one thing, so they sit on their own tight gap rather than on
+     `.card-top`'s 12px — which is spacing between items, and would read as two of them. */
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+/* Small enough that the number is still what carries across the kitchen, large enough to read
+   from the metre this board is stood at. It takes its colour from `.queue`, so a ready card
+   turns the word green with the number rather than leaving it stranded. */
+.queue-label {
+  font-size: 22px;
+  font-weight: 700;
 }
 
 .card.ready .queue { color: var(--basil); }
