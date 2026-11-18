@@ -12,15 +12,23 @@ is what it means.
 
 ## Status — read this first
 
-**Builds, 33 Android tests and 28 Node tests pass, and the whole loop has been driven on a real
+**Builds, 46 Android tests and 40 Node tests pass, and the whole loop has been driven on a real
 Sunmi V2 Pro** over USB: order → payment QR → queue ticket → kitchen board →
 พร้อมส่ง → back on the till, and the board's undo back the other way.
+
+✅ **Both printed documents are settled on paper.** The receipt joined the queue ticket on
+2026-11-18 — the shop's verdict on a sample of each at ขนาดเลขคิว −2 was "อ่านได้ดี", which
+covers the three things that were open about it: the shop's name holding one line on both slips,
+the 18-of-18 row printing its name whole, and the drawn queue number being big enough to match a
+bowl to a card from a spike. So the receipt's shape has the same standing as the kitchen slip's
+in the parent repo: **don't change it without being asked.**
 
 ✅ **Printed on paper 2026-11-13**, on the shop's own V2 Pro, and the first ticket paid for itself:
 the queue number was right and the text around it broke mid-word twice. 0.3.0-ticketfit is the
 answer — every line measured and centred, the size one counted step down, and a phrase space in
 the footer. See **Printing**. The shop runs ขนาดเลขคิวบนบัตร at −2, so `TicketLine.Banner`'s
-chosen 120 dots was close and the control is what settled it, as intended.
+chosen 120 dots was close and the control is what settled it, as intended. The receipt reached
+paper only on 2026-11-18, because until 0.6.1 the sample button could not print one.
 
 **ตั้งค่า → พิมพ์ตัวอย่าง prints one of EACH document** (0.6.1). It printed only the queue ticket
 until then, which left the receipt — the document 0.5.0 changed most, and the one the kitchen now
