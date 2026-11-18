@@ -93,12 +93,21 @@ class SunmiPrinterAdapter(
             // at −1 dot it rounded 15 straight back to 15, so the rows that are most of the slip
             // printed unchanged. At offset 0 the ratio is exactly 1 and the counted calibration
             // is what draws.
-            val ticketRows = ReceiptRowBitmap(
-                columns = ticketFont.charsPerLine,
-                scale = dots.toFloat() / ticketFont.dots
-            )
+            // One renderer per distinct size on this ticket, built on demand and kept for the
+            // rest of it. A line may ask for dots of its own — the receipt prints its date small
+            // and its item rows large — and the scale is baked into the paint when the renderer
+            // is constructed, so a second size needs a second renderer rather than an argument.
+            // Cached because a ticket has a handful of sizes and dozens of lines, and the
+            // constructor measures text to calibrate itself.
+            val rowsByDots = HashMap<Int, ReceiptRowBitmap>()
+            fun rowsAt(lineDots: Int): ReceiptRowBitmap = rowsByDots.getOrPut(lineDots) {
+                ReceiptRowBitmap(
+                    columns = ticketFont.charsPerLine,
+                    scale = lineDots.toFloat() / ticketFont.dots
+                )
+            }
             ticket.lines.forEach { ticketLine ->
-                writeLine(line, ticketLine, ticketRows, dots)
+                writeLine(line, ticketLine, ::rowsAt, dots)
             }
             // V1s/V2/V2 Pro have no cutter — autoOut feeds the paper clear of the head so the
             // last line isn't left inside the mechanism for the operator to tear off blind.
@@ -109,10 +118,14 @@ class SunmiPrinterAdapter(
     private fun writeLine(
         line: com.sunmi.printerx.api.LineApi,
         ticketLine: TicketLine,
-        rows: ReceiptRowBitmap,
+        /** A renderer calibrated for a given size in dots — see `rowsAt` above. */
+        rowsAt: (Int) -> ReceiptRowBitmap,
         /** The ticket font's size with the ticket's own offset already applied. */
         ticketDots: Int
     ) {
+        /** A line's own size: the ticket's, plus whatever that line asked for. */
+        fun lineDots(extra: Int) = (ticketDots + extra).coerceAtLeast(8)
+        val rows = rowsAt(ticketDots)
         when (ticketLine) {
             // No trailing "\n": printText prints a whole line already, and appending one fed a
             // blank line after every row — which is what made the receipt look loosely spaced.
@@ -135,10 +148,13 @@ class SunmiPrinterAdapter(
             // lone "ก" under "ไม่ผั". Measured here in the font that draws it, broken at a
             // space, with a gap narrower than the proportional space the shop found too wide.
             is TicketLine.Wrapped -> {
+                // Measured against the paper at this line's own size, so a bigger line simply
+                // breaks sooner. Nothing downstream counts columns.
+                val at = rowsAt(lineDots(ticketLine.dots))
                 val drawn = if (ticketLine.center) {
-                    rows.wrappedCenter(ticketLine.text, ticketLine.bold, textSize.allTall)
+                    at.wrappedCenter(ticketLine.text, ticketLine.bold, textSize.allTall)
                 } else {
-                    rows.wrappedLeft(ticketLine.text, ticketLine.bold, textSize.allTall)
+                    at.wrappedLeft(ticketLine.text, ticketLine.bold, textSize.allTall)
                 }
                 drawn.forEach { line.printBitmap(it, bitmapStyle()) }
             }
@@ -153,7 +169,7 @@ class SunmiPrinterAdapter(
             // So the row is typeset here and handed over as a picture, which also lets it use the
             // whole paper rather than stopping at the column count Thai happened to fit in.
             is TicketLine.KeyValue -> line.printBitmap(
-                rows.row(
+                rowsAt(lineDots(ticketLine.dots)).row(
                     left = ticketLine.left,
                     right = ticketLine.right,
                     bold = ticketLine.bold,

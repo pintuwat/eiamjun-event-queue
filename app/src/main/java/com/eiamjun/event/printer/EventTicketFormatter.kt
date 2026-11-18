@@ -30,6 +30,30 @@ object EventTicketFormatter {
     private const val HEADER_COLUMNS = 18
 
     /**
+     * The receipt's lines are not all one size, because its two readers are not the same person.
+     *
+     * Since 0.5.0 this slip goes to the kitchen, who read it at arm's length off a spike while
+     * cooking; the customer's copy of the same paper is read held in a hand. So the words the
+     * kitchen acts on — the dish, the count, the options, the note — go **up** three dots from
+     * [ReceiptFont.MEDIUM]'s 20, and the date goes **down** three, because it is the one line on
+     * the slip that nobody does anything with: it is there to settle an argument later, not to be
+     * read now.
+     *
+     * Dots rather than another [ReceiptFont], for the reason the enum carries: its entries hold
+     * column counts somebody counted on paper, and 17 and 23 are not among them. That is safe
+     * here and would not be on a padded row — every line these touch is measured in the font that
+     * draws it, against the paper's own dots.
+     *
+     * ⚠️ **The item row is trimmed, not wrapped**, so three dots up costs it about two columns of
+     * name: `ก๋วยเตี๋ยวคลุก x2` already measured 18 of 18 at 20 dots. The count is protected by
+     * `leftTail` and the price keeps the right edge, so what a long name loses is its tail. The
+     * shop chose legibility over the last characters of a name on a one-dish menu; check this on
+     * paper before changing the sizes, never by counting.
+     */
+    private const val ITEM_DOTS = 3
+    private const val DATE_DOTS = -3
+
+    /**
      * The customer's queue ticket.
      *
      * Four things, in the order they are read: whose stall this is, the number, when it was taken,
@@ -147,7 +171,7 @@ object EventTicketFormatter {
                 add(TicketLine.Wrapped("คิวที่", center = true))
                 add(TicketLine.Banner(queueNo.toString(), heightDots = bannerDots(dotsOffset)))
                 add(TicketLine.Rule)
-                add(TicketLine.Text(EventDay.thaiDateTime(printedAt)))
+                add(TicketLine.Text(EventDay.thaiDateTime(printedAt), dots = DATE_DOTS))
 
                 // Grouped by everything that will be printed, the price included. Two rows that
                 // read identically at the same price look like the till having rung it up twice;
@@ -162,14 +186,19 @@ object EventTicketFormatter {
                                 // Kept out of the trim: a shortened dish name still reads, a
                                 // dropped count makes the bill impossible to check against the cash.
                                 leftTail = if (qty > 1) " x$qty" else "",
-                                right = "${key.unitPrice * qty}.-"
+                                right = "${key.unitPrice * qty}.-",
+                                dots = ITEM_DOTS
                             )
                         )
                         // [Wrapped], not Text: on the Sunmi this is measured and broken in the font
                         // that draws it. Breaking it by column count is what stranded a lone "ก" on
                         // its own line on the shop's kitchen slip — there is no cell to count.
-                        if (key.options.isNotBlank()) add(TicketLine.Wrapped("  ${key.options}"))
-                        if (key.note.isNotBlank()) add(TicketLine.Wrapped("  * ${key.note}"))
+                        if (key.options.isNotBlank()) {
+                            add(TicketLine.Wrapped("  ${key.options}", dots = ITEM_DOTS))
+                        }
+                        if (key.note.isNotBlank()) {
+                            add(TicketLine.Wrapped("  * ${key.note}", dots = ITEM_DOTS))
+                        }
                     }
                 add(TicketLine.Rule)
                 add(TicketLine.KeyValue("รวม", "$total.-", bold = true))

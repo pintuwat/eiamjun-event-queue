@@ -275,6 +275,28 @@ with no fixed cell. That is exactly how "เอี๋ยม" lost its "จุ๊
 the receipt had the same bug waiting and the size change would have set it off. Measured and
 centred it fits one line, and the biggest thing on the paper is the number, which is the point.
 
+**The receipt's lines are not all one size, because its two readers are not the same person**
+(0.7.0). The kitchen reads this slip at arm's length off a spike while cooking; the customer reads
+the same paper held in a hand. So the words the kitchen acts on go **up three dots** from
+`MEDIUM`'s 20 — the dish with its count and price, the options, the note — and the date goes
+**down three**, because it is the one line nobody does anything with: it is there to settle an
+argument later, not to be read now. The header, รวม and the queue banner are untouched, since
+those were approved on paper at the ticket's size.
+
+`TicketLine.Wrapped` and `KeyValue` gained a `dots` of their own to make it possible; `Text`
+already had one. The Sunmi driver keeps **one `ReceiptRowBitmap` per distinct size on a ticket**,
+built on demand and cached, because the scale is baked into the paint at construction.
+
+Dots rather than another `ReceiptFont`, for the reason the enum carries: its entries hold column
+counts somebody counted on paper and 17 and 23 are not among them. Safe here, and not on a padded
+row — every line these touch is measured in the font that draws it, against the paper's own dots.
+
+⚠️ **The item row is trimmed, not wrapped, so the size costs it name.** `ก๋วยเตี๋ยวคลุก x2`
+against `120.-` already measured 18 of 18 at 20 dots, so at 23 a long name loses its tail. The
+count is protected by `leftTail` and the price keeps the right edge, which is the right thing to
+lose last on a one-dish menu — but this is the number to check on paper first if the sizes move
+again, and never by counting.
+
 **One lever moves both queue numbers** (`bannerDots`). ตั้งค่า reads
 **ขนาดเลขคิว (บัตรคิว + ใบเสร็จ)**. Two controls would be a state nobody could read off the
 settings screen, and two copies of one number is the drift this file keeps recording. Split them

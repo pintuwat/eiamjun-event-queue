@@ -271,4 +271,44 @@ class EventTicketFormatterTest {
             )
         }
     }
+
+    @Test
+    fun `the kitchen's words print larger and the date smaller, on the same slip`() {
+        val ticket = EventTicketFormatter.receipt(
+            shopName = "ก๋วยเตี๋ยวคลุกเอี๋ยมจุ๊น",
+            queueNo = 7,
+            lines = listOf(noodles)
+        )
+
+        // The lines the kitchen acts on. Up, because this slip is read off a spike while cooking.
+        val item = ticket.lines.filterIsInstance<TicketLine.KeyValue>().first { it.left.contains("ก๋วยเตี๋ยว") }
+        assertEquals(3, item.dots)
+        val options = ticket.lines.filterIsInstance<TicketLine.Wrapped>().first { it.text.contains("เส้นหมี่") }
+        assertEquals(3, options.dots)
+        val note = ticket.lines.filterIsInstance<TicketLine.Wrapped>().first { it.text.contains("ไม่ใส่ถั่ว") }
+        assertEquals(3, note.dots)
+
+        // The one line nobody acts on. It settles an argument later; it is not read now.
+        val date = ticket.lines.filterIsInstance<TicketLine.Text>().first { it.text.contains("2569") }
+        assertEquals(-3, date.dots)
+    }
+
+    @Test
+    fun `the lines a customer checks stay at the ticket's own size`() {
+        val ticket = EventTicketFormatter.receipt(
+            shopName = "ก๋วยเตี๋ยวคลุกเอี๋ยมจุ๊น",
+            queueNo = 7,
+            lines = listOf(noodles)
+        )
+
+        // รวม is what gets checked against the cash, and the header is the shop's own name: both
+        // were approved on paper at the ticket's size, so a per-line nudge must not reach them.
+        // The queue number is a Banner and has no font to be sized by at all.
+        val total = ticket.lines.filterIsInstance<TicketLine.KeyValue>().first { it.left == "รวม" }
+        assertEquals(0, total.dots)
+        val header = ticket.lines.filterIsInstance<TicketLine.Wrapped>().first { it.bold }
+        assertEquals(0, header.dots)
+        val thanks = ticket.lines.filterIsInstance<TicketLine.Text>().first { it.center }
+        assertEquals(0, thanks.dots)
+    }
 }

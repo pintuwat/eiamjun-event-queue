@@ -84,7 +84,18 @@ sealed class TicketLine {
          * in a font with no fixed cell — which is how "มารับอาหาร" came off the paper as "มารั"
          * over "บอาหาร".
          */
-        val center: Boolean = false
+        val center: Boolean = false,
+        /**
+         * Dots above or below the ticket's own size, for this line alone.
+         *
+         * Safe here in a way it is not on a padded row, and for the reason this whole class
+         * exists: a [Wrapped] line is **measured in the font that draws it** against the paper's
+         * own dots, so changing the size changes where it breaks and nothing else. There is no
+         * column count underneath it to fall out of step.
+         *
+         * A fixed-cell driver ignores it, like every other dot nudge here — see [Ticket.dotsOffset].
+         */
+        val dots: Int = 0
     ) : TicketLine()
 
     /**
@@ -102,7 +113,21 @@ sealed class TicketLine {
          * receipt puts the quantity here, because a dropped "x2" is a bill that cannot be checked
          * against the drawer, while a shortened dish name still reads.
          */
-        val leftTail: String = ""
+        val leftTail: String = "",
+        /**
+         * Dots above or below the ticket's own size, for this row alone.
+         *
+         * ⚠️ **This costs room, and the row is trimmed rather than wrapped.** A drawn row puts the
+         * price at `paper - width(price)` and cuts [left] from its end to make it fit (keeping
+         * [leftTail]), so a bigger size means a longer name loses characters sooner. On this
+         * receipt that is the trade the shop asked for: the kitchen works off these lines at arm's
+         * length, and a name one letter short still reads where a name too small to see does not.
+         *
+         * Only the drawing drivers honour it. A fixed-cell driver pads by column count and has to
+         * stay at the ticket's size, or the padding is calculated against a width the row is no
+         * longer printing at.
+         */
+        val dots: Int = 0
     ) : TicketLine()
 
     /**
