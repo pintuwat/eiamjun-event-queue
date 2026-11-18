@@ -22,9 +22,14 @@ answer — every line measured and centred, the size one counted step down, and 
 the footer. See **Printing**. The shop runs ขนาดเลขคิวบนบัตร at −2, so `TicketLine.Banner`'s
 chosen 120 dots was close and the control is what settled it, as intended.
 
-⚠️ **Neither 0.3.0's queue ticket nor 0.5.0's receipt has met paper.** Print one of each from
-ตั้งค่า before the event — the receipt especially, because 0.5.0 moved its size *and* put a drawn
-banner on it, and the shop's longest row now measures exactly 18 columns of 18.
+**ตั้งค่า → พิมพ์ตัวอย่าง prints one of EACH document** (0.6.1). It printed only the queue ticket
+until then, which left the receipt — the document 0.5.0 changed most, and the one the kitchen now
+works from — with no way to see it on paper without ringing up a sale. A sample that covers half
+the paper hides the half at risk.
+
+The sample order is the shop's **worst case** rather than a tidy one: `ก๋วยเตี๋ยวคลุก x2` against
+`120.-` is exactly 18 of the 18 columns this size has, so a name that is going to lose a character
+loses it here. Nothing is recorded and nothing is sent — no order row, no money, no kitchen board.
 
 ⚠️ **The seeded prices are placeholders** (50 / 20 / +10 / +10). The dishes and options are what the
 owner described; the numbers were never given. `SeedData` seeds only an empty database, and

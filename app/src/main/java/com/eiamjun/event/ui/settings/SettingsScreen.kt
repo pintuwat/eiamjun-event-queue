@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -201,7 +202,7 @@ fun SettingsScreen(
                 OutlinedButton(
                     onClick = viewModel::printSamples,
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                ) { Text("พิมพ์บัตรตัวอย่าง") }
+                ) { Text("พิมพ์ตัวอย่าง\nทั้งสองใบ", textAlign = TextAlign.Center) }
                 OutlinedButton(
                     onClick = viewModel::readPrinterStatus,
                     modifier = Modifier.weight(1f).heightIn(min = 52.dp)

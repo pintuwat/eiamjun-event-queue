@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eiamjun.event.data.AppSettings
 import com.eiamjun.event.data.EventLog
+import com.eiamjun.event.data.OrderLineEntity
 import com.eiamjun.event.data.QueueCounter
 import com.eiamjun.event.net.KitchenSync
 import com.eiamjun.event.printer.EventTicketFormatter
@@ -178,6 +179,20 @@ class SettingsViewModel @Inject constructor(
      * The queue number's size is the open question — nobody has met this paper yet — and this is
      * what settles it alongside ขนาดเลขคิว rather than a build.
      */
+    /**
+     * One of **each** document, so a size can be judged on paper rather than argued about in dots.
+     *
+     * It printed only the queue ticket for a while, which left the receipt — the document 0.5.0
+     * changed most, and the one the kitchen now works from — with no way to see it without ringing
+     * up a sale. A sample that covers half the paper is a sample that hides the half at risk.
+     *
+     * The sample order is the shop's **worst case**, not a tidy one: `ก๋วยเตี๋ยวคลุก x2` against
+     * `120.-` is exactly 18 of the 18 columns this size has, so if the name is going to lose a
+     * character it loses it here. The options and the note ride along because they are what tell
+     * two lines of a one-dish menu apart.
+     *
+     * Nothing is recorded and nothing is sent: no order row, no money, no kitchen board.
+     */
     fun printSamples() {
         viewModelScope.launch {
             var preview: String? = null
@@ -187,6 +202,14 @@ class SettingsViewModel @Inject constructor(
                     shopName = settings.shopName,
                     queueNo = 88,
                     itemCount = 2,
+                    dotsOffset = settings.queueNumberDots
+                )
+            )
+            printer.print(
+                EventTicketFormatter.receipt(
+                    shopName = settings.shopName,
+                    queueNo = 88,
+                    lines = SAMPLE_LINES,
                     dotsOffset = settings.queueNumberDots
                 )
             )
@@ -200,5 +223,30 @@ class SettingsViewModel @Inject constructor(
 
     fun dismissMessages() {
         _state.value = _state.value.copy(connectionResult = null, printerStatus = null)
+    }
+
+    companion object {
+        /**
+         * What the sample receipt is made of — the longest row the shop's menu can produce, plus
+         * a short one to show the column holding steady beneath it.
+         *
+         * `orderId = 0` and never written: these exist to be measured on paper.
+         */
+        private val SAMPLE_LINES = listOf(
+            OrderLineEntity(
+                orderId = 0,
+                itemName = "ก๋วยเตี๋ยวคลุก",
+                optionsSummary = "เส้นหมี่ · เผ็ดน้อย · เพิ่มแคปป๊อป",
+                note = "ไม่ใส่ถั่ว",
+                qty = 2,
+                unitPrice = 60
+            ),
+            OrderLineEntity(
+                orderId = 0,
+                itemName = "แคปป๊อป",
+                qty = 1,
+                unitPrice = 20
+            )
+        )
     }
 }
