@@ -263,11 +263,17 @@ which calibrates against that count, so a size nobody counted puts a drawn row a
 size from the printed lines beside it. `MEDIUM` is 20 dots and 18 columns, counted on paper, and
 is what the queue ticket settled on after the first real print — the two documents now read alike.
 
-⚠️ **18 columns is exactly what the shop's longest row needs.** `ก๋วยเตี๋ยวคลุก x2` with `120.-`
-measures 18 of 18 (tone marks take no column). At ten of one dish — `x10` with `600.-` — it is 19,
-and `KeyValue` trims from the end, so the **name** loses a character while the count is protected
-by `leftTail`. On the Sunmi the row is measured in dots rather than counted, so it trims only if
-it genuinely overruns; the column arithmetic is the warning, not the verdict.
+✅ **The column arithmetic is the warning, not the verdict — and on this row it was wrong.**
+`ก๋วยเตี๋ยวคลุก x2` with `120.-` counts 18 of 18 columns (tone marks take no column), so raising
+it three dots in 0.7.0 should have overrun the paper. It did not: printed on 2026-11-18 the name
+came out whole. On the Sunmi a `KeyValue` is **measured in dots against the paper**, and
+`MEDIUM`'s 18 is the count of "ก" that spans it — a real row mixes Thai letters narrower than
+that with latin digits and zero-width marks, so it has room the count cannot see.
+
+⚠️ That is evidence about **one row at one size**, not headroom to spend. A longer row still
+trims from the end rather than wrapping, the name losing its tail while `leftTail` protects the
+count and the price keeps the right edge. `x10` with `600.-` is the next case up and has never
+been printed. **Print it and look; never settle this by counting.**
 
 **The shop's name is `Wrapped`, not `big`.** `big` doubles the width and so halves the columns —
 nine at this size — and a centred `Text` goes to `printText`, which breaks by character in a font
@@ -291,11 +297,14 @@ Dots rather than another `ReceiptFont`, for the reason the enum carries: its ent
 counts somebody counted on paper and 17 and 23 are not among them. Safe here, and not on a padded
 row — every line these touch is measured in the font that draws it, against the paper's own dots.
 
-⚠️ **The item row is trimmed, not wrapped, so the size costs it name.** `ก๋วยเตี๋ยวคลุก x2`
-against `120.-` already measured 18 of 18 at 20 dots, so at 23 a long name loses its tail. The
-count is protected by `leftTail` and the price keeps the right edge, which is the right thing to
-lose last on a one-dish menu — but this is the number to check on paper first if the sizes move
-again, and never by counting.
+✅ **Printed at these sizes on 2026-11-18 and the item row was not trimmed** — the shop's words:
+"ไม่โดนตัด". Which is worth recording because the counting said otherwise: `ก๋วยเตี๋ยวคลุก x2`
+with `120.-` is 18 of 18 columns at 20 dots, so three dots up should not have fitted. The row is
+measured in dots, not columns (see the note on 18 columns above), and the slack is real.
+
+⚠️ Still trimmed rather than wrapped, so a longer row loses the tail of its **name** — the count
+is protected by `leftTail` and the price keeps the right edge. If these sizes move again, print
+the longest order the menu can make and look at it.
 
 **One lever moves both queue numbers** (`bannerDots`). ตั้งค่า reads
 **ขนาดเลขคิว (บัตรคิว + ใบเสร็จ)**. Two controls would be a state nobody could read off the
