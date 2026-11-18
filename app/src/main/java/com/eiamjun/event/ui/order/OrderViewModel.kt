@@ -38,9 +38,22 @@ data class OrderUiState(
     val itemCount: Int get() = cart.sumOf { it.qty }
 }
 
+/**
+ * The order just paid for, while its dialog is up.
+ *
+ * [receiptPrinted] is what moves the emphasis from พิมพ์ใบเสร็จ to รับออเดอร์ถัดไป. Since 0.5.0
+ * the receipt **is** the kitchen's slip, so printing it is a step in every order rather than a
+ * courtesy — and the dialog has to read as two steps in order, or the staff close it on the card
+ * alone and the kitchen is told nothing.
+ *
+ * Set from the print's own result, never from the tap: a receipt that did not come out has not
+ * been given to anybody, and a button that goes quiet on a failed print is a button that lies.
+ */
 data class PrintedTicket(
     val order: OrderWithLines,
-    val printError: String? = null
+    val printError: String? = null,
+    val receiptPrinted: Boolean = false,
+    val receiptError: String? = null
 )
 
 @HiltViewModel
@@ -195,7 +208,16 @@ class OrderViewModel @Inject constructor(
                 lines = order.lines,
                 dotsOffset = settings.queueNumberDots
             )
-            print(ticket)
+            val error = print(ticket)
+            // Only while this order's own dialog is still the one on screen. The state is about
+            // that dialog, and a print that finishes after it has been dismissed has nothing to
+            // say to the next order's.
+            val printed = _state.value.printed
+            if (printed?.order?.order?.id == order.order.id) {
+                _state.value = _state.value.copy(
+                    printed = printed.copy(receiptPrinted = error == null, receiptError = error)
+                )
+            }
         }
     }
 

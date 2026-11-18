@@ -187,6 +187,29 @@ the staff pay most often. Loud (filled Basil, full width) on a พร้อม�
 on one still cooking: both can be handed over, since the kitchen may simply never have marked it,
 but the ready card is the one somebody is walking towards with a bowl.
 
+**The order-printed dialog reads as two steps, and only one of them is loud at a time** (0.6.0).
+Since 0.5.0 the receipt **is** the kitchen's slip, so an order is not finished until it has been
+printed — and the dialog still said otherwise: พิมพ์ใบเสร็จ was one of two equal outlined buttons
+under the number, labelled just "ใบเสร็จ", while the one filled button said รับออเดอร์ถัดไป. A
+screen whose loud button is the way out is a screen that tells you to leave, and the kitchen is
+told nothing. So the emphasis follows the work: **พิมพ์ใบเสร็จ** is filled and full width until
+the paper is out, then it drops to an outline reading พิมพ์ใบเสร็จซ้ำ and **รับออเดอร์ถัดไป**
+takes the colour, under a green ✓ that says the slip has gone.
+
+**Quiet, never disabled.** The sale is recorded and the queue ticket is already in the customer's
+hand before this dialog exists, so a staff member who has to move on — a jammed printer, a
+customer who walked off — must be able to. A dialog that traps them at a counter with a queue is
+worse than one they leave early. The colour says what to do next; it does not decide.
+
+⚠️ **The flag is set from the print's result, never from the tap.** A receipt that did not come
+out has not been given to anybody, so a failed print leaves พิมพ์ใบเสร็จ loud and says why, the
+same way the queue ticket's own failure is reported. It is also scoped to the order whose dialog
+is on screen: a print that finishes after the dialog is dismissed has nothing to say to the next
+order's.
+
+พิมพ์บัตรคิวซ้ำ went from half of that row to the quietest thing on the dialog, because it is only
+pressed when the queue ticket itself jammed — rare, next to a step that now happens every time.
+
 **ยกเลิก stays behind the dialog, and that is the line between them.** It voids an order already
 paid for, with no undo, and a list read at speed is the last place it belongs. The sheet keeps its
 own ส่งของแล้ว, for someone who opened a card to read the lines back.

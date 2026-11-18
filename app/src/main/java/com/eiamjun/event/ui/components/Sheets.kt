@@ -140,12 +140,26 @@ fun PaymentSheet(
  * It shows the number because the staff read it back to the customer as they hand the paper over,
  * and because when the printer has failed this screen is the only copy of it — which is why
  * พิมพ์บัตรคิวซ้ำ is here and not buried in the queue list.
+ *
+ * **It reads as two steps, and only one of them is loud at a time.** Since 0.5.0 the receipt is
+ * the kitchen's slip, so an order is not finished until it has been printed — and this dialog had
+ * พิมพ์ใบเสร็จ as one of two equal outlined buttons under the number with the filled one saying
+ * รับออเดอร์ถัดไป, which is the shape of a screen whose loud button is the way out. So the
+ * emphasis follows the work: พิมพ์ใบเสร็จ is the filled button until the receipt is out, then it
+ * goes quiet and รับออเดอร์ถัดไป takes the colour.
+ *
+ * Quiet, never disabled. The sale is already recorded and the queue ticket is already in the
+ * customer's hand, so a staff member who has to move on — a jammed printer, a customer who has
+ * walked off — must be able to, and a dialog that traps them is worse than one they can leave
+ * early. The colour says what to do next; it does not decide for them.
  */
 @Composable
 fun TicketPrintedSheet(
     queueNo: Int,
     total: Int,
     printError: String?,
+    receiptPrinted: Boolean,
+    receiptError: String?,
     onReprintTicket: () -> Unit,
     onPrintReceipt: () -> Unit,
     onDone: () -> Unit
@@ -167,30 +181,67 @@ fun TicketPrintedSheet(
                     // Said plainly rather than hidden: the sale is already recorded, so the honest
                     // report is "it is on the books and the paper did not come out".
                     Text(
-                        "พิมพ์ไม่ออก: $printError\nออเดอร์ถูกบันทึกแล้ว",
+                        "พิมพ์บัตรคิวไม่ออก: $printError\nออเดอร์ถูกบันทึกแล้ว",
                         color = Alert,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.padding(top = 10.dp)
                     )
                 }
-                Row(
-                    modifier = Modifier.padding(top = 14.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onReprintTicket,
-                        modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                    ) { Text("พิมพ์บัตรซ้ำ") }
+                if (receiptError != null) {
+                    Text(
+                        "พิมพ์ใบเสร็จไม่ออก: $receiptError",
+                        color = Alert,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.padding(top = 10.dp)
+                    )
+                }
+
+                // The step, at the size of a step: full width and filled, so the eye lands on it
+                // before the way out. Once the paper is out it drops to an outline and keeps the
+                // word ซ้ำ, because by then the only reason to press it is a slip that went wrong.
+                if (receiptPrinted) {
+                    Text(
+                        "✓ พิมพ์ใบเสร็จให้ครัวแล้ว",
+                        color = Basil,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(top = 14.dp)
+                    )
                     OutlinedButton(
                         onClick = onPrintReceipt,
-                        modifier = Modifier.weight(1f).heightIn(min = 52.dp)
-                    ) { Text("ใบเสร็จ") }
+                        modifier = Modifier
+                            .padding(top = 6.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 52.dp)
+                    ) { Text("พิมพ์ใบเสร็จซ้ำ") }
+                } else {
+                    Button(
+                        onClick = onPrintReceipt,
+                        modifier = Modifier
+                            .padding(top = 14.dp)
+                            .fillMaxWidth()
+                            .heightIn(min = 60.dp)
+                    ) { Text("พิมพ์ใบเสร็จ", fontSize = 20.sp, fontWeight = FontWeight.Bold) }
                 }
+
+                // Rare — only when the queue ticket itself jammed — so it is the quietest thing
+                // here rather than half of a row shared with the step above it.
+                TextButton(
+                    onClick = onReprintTicket,
+                    modifier = Modifier.padding(top = 2.dp).heightIn(min = 48.dp)
+                ) { Text("พิมพ์บัตรคิวซ้ำ", color = InkTextDim) }
             }
         },
         confirmButton = {
-            Button(onClick = onDone, modifier = Modifier.heightIn(min = 56.dp)) {
-                Text("รับออเดอร์ถัดไป", fontSize = 19.sp)
+            // Takes the colour only once the receipt is out, so the two buttons read in the order
+            // the work happens. Outlined rather than disabled: see the note on this composable.
+            if (receiptPrinted) {
+                Button(onClick = onDone, modifier = Modifier.heightIn(min = 56.dp)) {
+                    Text("รับออเดอร์ถัดไป", fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                }
+            } else {
+                OutlinedButton(onClick = onDone, modifier = Modifier.heightIn(min = 56.dp)) {
+                    Text("รับออเดอร์ถัดไป", fontSize = 19.sp, color = InkTextDim)
+                }
             }
         }
     )

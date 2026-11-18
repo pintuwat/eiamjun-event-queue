@@ -193,6 +193,8 @@ fun OrderScreen(
             queueNo = printed.order.order.queueNo,
             total = printed.order.order.total,
             printError = printed.printError,
+            receiptPrinted = printed.receiptPrinted,
+            receiptError = printed.receiptError,
             onReprintTicket = { viewModel.reprintTicket(printed.order) },
             onPrintReceipt = { viewModel.printReceipt(printed.order) },
             onDone = viewModel::dismissPrinted
