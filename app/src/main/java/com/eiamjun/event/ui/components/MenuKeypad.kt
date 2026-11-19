@@ -36,8 +36,8 @@ data class PadKey(
 )
 
 /**
- * The pad. Two across, because this menu has two dishes and a key the width of half a 5.5" screen
- * is a target nobody misses with a queue waiting.
+ * The pad. Two across, because a key the width of half a 5.5" screen is a target nobody misses
+ * with a queue waiting — this menu is short enough that nothing is ever behind a scroll.
  *
  * The label is 27sp and is **not** a setting. The shop's till had three sizes for this and the
  * owner's verdict was that two pads reading the same words at different sizes is worse than one

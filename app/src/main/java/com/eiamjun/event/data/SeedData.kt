@@ -40,16 +40,6 @@ object SeedData {
                         SeedOption("มาม่า")
                     )
                 ),
-                SeedGroup(
-                    name = "ความเผ็ด",
-                    multiSelect = false,
-                    options = listOf(
-                        SeedOption("ไม่เผ็ด"),
-                        SeedOption("เผ็ดน้อย", isDefault = true),
-                        SeedOption("เผ็ดกลาง"),
-                        SeedOption("เผ็ดมาก")
-                    )
-                ),
                 // เลือกได้หลายอย่าง, and it has to be: a one-of group with a single option can
                 // never be switched off, so an optional extra put in one would be compulsory.
                 SeedGroup(
@@ -72,9 +62,12 @@ object SeedData {
                 )
             )
         ),
-        // Nothing to ask. A key with no groups goes straight into the basket on one tap, which is
-        // the reason the order sheet is opened per dish rather than for every key.
-        SeedItem(name = "แคปป๊อป", price = 20, groups = emptyList())
+        // Two keys rather than one key with a ขนาด question behind it. Nothing to ask means one
+        // tap, which is the reason the order sheet is opened per dish rather than for every key —
+        // and the size then reaches the ticket and the kitchen board as part of the dish's name,
+        // in the large type, instead of on the small options line below it.
+        SeedItem(name = "แคปป๊อป เล็ก", price = 20, groups = emptyList()),
+        SeedItem(name = "แคปป๊อป ใหญ่", price = 20, groups = emptyList())
     )
 
     suspend fun seed(dao: MenuDao) {

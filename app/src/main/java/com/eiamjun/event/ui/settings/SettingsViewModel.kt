@@ -236,14 +236,14 @@ class SettingsViewModel @Inject constructor(
             OrderLineEntity(
                 orderId = 0,
                 itemName = "ก๋วยเตี๋ยวคลุก",
-                optionsSummary = "เส้นหมี่ · เผ็ดน้อย · เพิ่มแคปป๊อป",
+                optionsSummary = "เส้นหมี่ · เพิ่มแคปป๊อป · พิเศษ",
                 note = "ไม่ใส่ถั่ว",
                 qty = 2,
                 unitPrice = 60
             ),
             OrderLineEntity(
                 orderId = 0,
-                itemName = "แคปป๊อป",
+                itemName = "แคปป๊อป ใหญ่",
                 qty = 1,
                 unitPrice = 20
             )

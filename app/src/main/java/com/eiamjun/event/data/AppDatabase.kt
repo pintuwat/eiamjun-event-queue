@@ -4,7 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 /**
- * Version 2, and there is no `fallbackToDestructiveMigration()`.
+ * Version 3, and there is no `fallbackToDestructiveMigration()`.
  *
  * The shop's till learned this the expensive way: once a database holds money that has been taken,
  * a missing migration has to fail loudly at startup rather than quietly delete the day. An event's
@@ -22,7 +22,7 @@ import androidx.room.RoomDatabase
         OrderLineEntity::class,
         OutboxEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

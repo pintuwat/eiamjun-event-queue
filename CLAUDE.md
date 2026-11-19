@@ -313,6 +313,46 @@ only if the kitchen's slip and the customer's card genuinely want different size
 
 ---
 
+## The menu
+
+Two dishes and three keys: ก๋วยเตี๋ยวคลุก, and **แคปป๊อป เล็ก / แคปป๊อป ใหญ่**. Seeded into an
+empty database only, so a terminal that has been selling all weekend never has its prices
+overwritten by an update. ⚠️ **The prices are still placeholders** — the owner types the real ones
+in ตั้งค่า → แก้ไขเมนู, which is the whole reason they are not in code.
+
+**The snack is two keys, not one key with a ขนาด question behind it** (0.8.0, at the owner's
+word). A dish with no groups goes straight into the basket on one tap, which is the reason the
+order sheet is opened per dish rather than for every key — and a bag of pork rind with a queue
+waiting is the clearest case there is for not asking. The size then reaches the ticket and the
+kitchen board as part of the **dish's name**, in the large type, instead of on the small options
+line beneath it. The shop's own till reached the same conclusion about แคปหมู from the other
+direction: it has sizes, and it is the one item the owner named as not wanting a sheet.
+
+**ความเผ็ด is gone** (0.8.0). Four options and a question on every bowl, for a stall that does not
+want to be asked.
+
+⚠️ **แก้ไขเมนู on the device cannot do either of those.** It changes a dish's name, its price and
+whether it is on sale, and it adds, renames and deletes options *within* a group — but it creates
+and deletes neither a **group** nor a **dish**. So every menu change of that shape is a migration
+(`MIGRATION_2_3`), and the rows are found by the names they were seeded under, **written out in
+the migration rather than read from `SeedData`**: a migration is a record of what happened to one
+database on one day, and one that reads today's constants is a record of nothing.
+
+Three things that migration is careful about, each of them a scar from the shop's till:
+
+| | |
+|---|---|
+| Options deleted before their group | `ON DELETE CASCADE` is off in parts of Room's migration path, and four orphan rows pointing at a group that is gone is a menu nobody can read |
+| The INSERT names every column | Two terminals of the same age are not the same schema; the shop's till went down twice on a column with no default |
+| The new key does not depend on the rename having matched | The name may have been edited in แก้ไขเมนู since it was seeded, and a stall left with no ใหญ่ key over a spelling is the failure worth designing out. `NOT EXISTS` on the name, so re-running cannot double it |
+
+**Orders already taken are never touched.** A line copies the dish's name, its options and its
+price at the moment it is ordered, so a ticket printed before this change still reads "เผ็ดน้อย"
+and still says "แคปป๊อป" — which is what was sold, and what the customer was charged for. That is
+also what makes editing the menu safe at all.
+
+---
+
 ## Queue numbers
 
 Issued on the device (`QueueCounter`), restarting at 1 each event day, where the day begins at
