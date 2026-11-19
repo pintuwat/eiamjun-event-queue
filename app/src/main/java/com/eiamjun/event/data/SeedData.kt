@@ -3,10 +3,15 @@ package com.eiamjun.event.data
 /**
  * The event's menu, written into an empty database on first launch.
  *
- * ⚠️ **The prices here are placeholders.** The dishes and the options are what the owner described;
- * the numbers were not given and are a guess. Every one of them is editable in the app
- * (ตั้งค่า → แก้ไขเมนู) precisely so the real prices can be typed in on the morning rather than
- * waiting on a build — which is the same reason the shop's till stopped carrying prices in code.
+ * **This is the stall's own menu, read back off the terminal** — not the guess it started as. The
+ * dishes, the options and the prices were typed into ตั้งค่า → แก้ไขเมนู over the first two
+ * events, and on 19/11/2569 the owner's instruction was to take what is on the device as the
+ * truth and bring the code to it. So a fresh install, or a second terminal, now starts where the
+ * first one actually is rather than where someone once guessed it would be.
+ *
+ * It is still editable in the app, which is the point: the next change belongs in ตั้งค่า on the
+ * morning of an event, not in a build. Copying it back here is a thing to do afterwards, when
+ * something has settled.
  *
  * Seeded **only into a database that does not exist yet**, so a terminal that has been selling all
  * weekend never has its prices overwritten by an update.
@@ -46,15 +51,13 @@ object SeedData {
                     name = "เพิ่มเติม",
                     multiSelect = true,
                     options = listOf(
-                        SeedOption("เพิ่มแคปป๊อป", priceDelta = 10),
-                        SeedOption("พิเศษ", priceDelta = 10)
+                        SeedOption("แคปป๊อปถัง", priceDelta = 39)
                     )
                 ),
                 SeedGroup(
                     name = "หมายเหตุ",
                     multiSelect = true,
                     options = listOf(
-                        SeedOption("ไม่ใส่ถั่ว"),
                         SeedOption("ไม่ใส่ผัก"),
                         SeedOption("ไม่ใส่ผักชี"),
                         SeedOption("ไม่ผงชูรส")

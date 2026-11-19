@@ -315,10 +315,33 @@ only if the kitchen's slip and the customer's card genuinely want different size
 
 ## The menu
 
-Two dishes and three keys: ก๋วยเตี๋ยวคลุก, and **แคปป๊อป เล็ก / แคปป๊อป ใหญ่**. Seeded into an
-empty database only, so a terminal that has been selling all weekend never has its prices
-overwritten by an update. ⚠️ **The prices are still placeholders** — the owner types the real ones
-in ตั้งค่า → แก้ไขเมนู, which is the whole reason they are not in code.
+Two dishes and three keys: ก๋วยเตี๋ยวคลุก 50, and **แคปป๊อป เล็ก / แคปป๊อป ใหญ่** at 20 each.
+One bowl asks three questions — เส้น, เพิ่มเติม (แคปป๊อปถัง +39), หมายเหตุ. Seeded into an empty
+database only, so a terminal that has been selling all weekend never has its prices overwritten by
+an update.
+
+**`SeedData` is now read back off the terminal, not a guess** (19/11/2569, at the owner's word:
+"ยึดตามที่อยู่ในเครื่องตอนนี้"). It began as the dishes the owner described with invented numbers,
+on the reasoning that the real ones would be typed in on the morning — which is exactly what
+happened over the first two events, and the two diverged. The device had emptied ความเผ็ด by hand,
+replaced both เพิ่มเติม options with one 39-Baht bucket, and dropped ไม่ใส่ถั่ว. So the code was
+brought to the device rather than the other way round, and a fresh install or a second terminal
+now starts where the first one actually is.
+
+That direction is the rule, not a one-off: **the terminal is the system of record for the menu,
+and copying it back into the seed is a thing to do afterwards, when something has settled.** The
+next change still belongs in ตั้งค่า → แก้ไขเมนู on the morning of an event, never in a build.
+Read the device before touching `SeedData`:
+
+```bash
+adb shell "run-as com.eiamjun.event sh -c 'cat /data/data/com.eiamjun.event/databases/eiamjun-event.db'" > /tmp/m.db
+sqlite3 -column /tmp/m.db "select g.name, o.name, o.priceDelta from option_groups g left join options o on o.groupId=g.id order by g.sortOrder, o.sortOrder"
+```
+
+⚠️ The sample receipt in ตั้งค่า is built from this same menu (`SAMPLE_LINES`), and its point is
+to be **the dearest row the menu can make** — ก๋วยเตี๋ยวคลุก with the bucket, 89 × 2. If the menu
+moves, that number is what has to move with it, or the sample stops proving the price column
+fits.
 
 **The snack is two keys, not one key with a ขนาด question behind it** (0.8.0, at the owner's
 word). A dish with no groups goes straight into the basket on one tap, which is the reason the
