@@ -235,7 +235,7 @@ class SettingsViewModel @Inject constructor(
         private val SAMPLE_LINES = listOf(
             OrderLineEntity(
                 orderId = 0,
-                itemName = "ก๋วยเตี๋ยวคลุก",
+                itemName = "ก๋วยเตี๋ยวคลุกเนื้อ",
                 optionsSummary = "เส้นหมี่ · แคปป๊อปถัง",
                 note = "ไม่ใส่ผักชี",
                 qty = 2,

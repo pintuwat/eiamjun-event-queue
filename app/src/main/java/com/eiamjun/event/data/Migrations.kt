@@ -90,5 +90,73 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+    /**
+     * Splits the bowl by its meat: ก๋วยเตี๋ยวคลุก becomes **หมู**, and **เนื้อ** is cloned from it.
+     *
+     * Two menu rows rather than one dish with a เนื้อ/หมู question behind it. The pad is the whole
+     * ordering interface here and a key is one tap; the meat is also the first thing the kitchen
+     * reads off the slip, and a dish name in the large type says it without the cook going down to
+     * the options line. (The shop's own till merges dishes that cost the same into one key — the
+     * opposite call, and right there, because a till prints no kitchen slip and nobody is handed a
+     * bowl labelled only ก๋วยเตี๋ยว.)
+     *
+     * **The clone is taken from the rows, not from [SeedData].** The terminal is the system of
+     * record for the menu: by the time this runs, the stall had emptied a group by hand, replaced
+     * both เพิ่มเติม options with one 39-Baht bucket and dropped a note. Cloning the code's idea of
+     * the dish would have handed เนื้อ a menu หมู has not had for two events.
+     *
+     * Groups are matched to their copies **by name**, which is what carries the options across.
+     * That holds because a dish's groups are the questions it asks and no dish asks two questions
+     * with one name; if that ever stops being true, this join is where it breaks.
+     *
+     * Re-running changes nothing: the dish is guarded by `NOT EXISTS` on its name, and the groups
+     * and options by the clone having none yet.
+     */
+    val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            val pork = "ก๋วยเตี๋ยวคลุกหมู"
+            val beef = "ก๋วยเตี๋ยวคลุกเนื้อ"
+
+            db.execSQL("UPDATE menu_items SET name = '$pork' WHERE name = 'ก๋วยเตี๋ยวคลุก'")
+
+            // Room next to its sibling on the pad. The two bowls read as a pair and the snacks
+            // move down, rather than เนื้อ landing after them at the end of the grid.
+            db.execSQL(
+                "UPDATE menu_items SET sortOrder = sortOrder + 1 " +
+                    "WHERE sortOrder > (SELECT sortOrder FROM menu_items WHERE name = '$pork') " +
+                    // Guarded like the insert below it, or a second run would shove the snacks
+                    // down the pad again and leave a hole where เนื้อ already sits.
+                    "AND NOT EXISTS (SELECT 1 FROM menu_items WHERE name = '$beef')"
+            )
+            db.execSQL(
+                "INSERT INTO menu_items (name, price, sortOrder, active) " +
+                    "SELECT '$beef', price, sortOrder + 1, active FROM menu_items " +
+                    "WHERE name = '$pork' " +
+                    "AND NOT EXISTS (SELECT 1 FROM menu_items WHERE name = '$beef')"
+            )
+
+            db.execSQL(
+                "INSERT INTO option_groups (itemId, name, multiSelect, sortOrder) " +
+                    "SELECT (SELECT id FROM menu_items WHERE name = '$beef'), " +
+                    "g.name, g.multiSelect, g.sortOrder FROM option_groups g " +
+                    "WHERE g.itemId = (SELECT id FROM menu_items WHERE name = '$pork') " +
+                    "AND NOT EXISTS (SELECT 1 FROM option_groups x " +
+                    "WHERE x.itemId = (SELECT id FROM menu_items WHERE name = '$beef'))"
+            )
+            db.execSQL(
+                "INSERT INTO options (groupId, name, priceDelta, sortOrder, isDefault) " +
+                    "SELECT ng.id, o.name, o.priceDelta, o.sortOrder, o.isDefault " +
+                    "FROM options o " +
+                    "JOIN option_groups og ON og.id = o.groupId " +
+                    "AND og.itemId = (SELECT id FROM menu_items WHERE name = '$pork') " +
+                    "JOIN option_groups ng ON ng.name = og.name " +
+                    "AND ng.itemId = (SELECT id FROM menu_items WHERE name = '$beef') " +
+                    "WHERE NOT EXISTS (SELECT 1 FROM options y JOIN option_groups z " +
+                    "ON z.id = y.groupId " +
+                    "WHERE z.itemId = (SELECT id FROM menu_items WHERE name = '$beef'))"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 }

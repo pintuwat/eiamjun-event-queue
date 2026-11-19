@@ -315,8 +315,22 @@ only if the kitchen's slip and the customer's card genuinely want different size
 
 ## The menu
 
-Two dishes and three keys: ก๋วยเตี๋ยวคลุก 50, and **แคปป๊อป เล็ก / แคปป๊อป ใหญ่** at 20 each.
-One bowl asks three questions — เส้น, เพิ่มเติม (แคปป๊อปถัง +39), หมายเหตุ. Seeded into an empty
+Four keys: **ก๋วยเตี๋ยวคลุกหมู / ก๋วยเตี๋ยวคลุกเนื้อ** at 50, and **แคปป๊อป เล็ก 39 /
+แคปป๊อป ใหญ่ 59**. Either bowl asks three questions — เส้น, เพิ่มเติม (แคปป๊อปถัง +39), หมายเหตุ.
+
+**The two bowls are two menu rows, not one dish with a เนื้อ/หมู question behind it** (0.9.0).
+The pad is the whole ordering interface and a key is one tap; the meat is also the first thing
+the kitchen reads, and a dish name carries it in the large type without the cook going down to
+the options line. The shop's own till makes the opposite call — it merges dishes that cost the
+same into one key — and is right to, because a till prints no kitchen slip and nobody is handed a
+bowl labelled only ก๋วยเตี๋ยว. Here somebody is.
+
+⚠️ **เนื้อ was cloned from the rows, not from `SeedData`, and that is what made it correct.**
+Between one reading of the device and the next, the stall had swapped ไม่ผงชูรส for ลูกชิ้นล้วน
+and priced the two snacks at 39 and 59. The clone picked all of it up; cloning the code's idea of
+the dish would have handed เนื้อ a menu หมู had not had for two events. `MIGRATION_3_4` matches a
+group to its copy **by name**, which is what carries the options across — sound because a dish's
+groups are the questions it asks and no dish asks two questions with one name. Seeded into an empty
 database only, so a terminal that has been selling all weekend never has its prices overwritten by
 an update.
 
