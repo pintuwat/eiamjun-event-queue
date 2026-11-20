@@ -287,6 +287,42 @@ test('the day summary adds up what has been taken', async () => {
   assert.ok(Array.isArray(body.items));
 });
 
+test('the sales report answers in one read, with the day it was asked for', async () => {
+  const body = await (await asTill(`/api/sales?day=${DAY}`)).json();
+  assert.equal(body.ok, true);
+  assert.equal(body.day, DAY);
+  // One request, every section of the page: totals, per-dish, per-hour, the latest bills. Four
+  // calls would give a screen that is half one moment and half another.
+  assert.ok(body.takings > 0);
+  assert.ok(Array.isArray(body.items) && body.items.length > 0);
+  assert.ok(Array.isArray(body.hours) && body.hours.length > 0);
+  assert.ok(Array.isArray(body.recent) && body.recent.length > 0);
+  assert.ok(Array.isArray(body.byStatus));
+
+  const bill = body.recent[0];
+  assert.ok(Number.isInteger(bill.queueNo) && Number.isInteger(bill.total));
+  assert.ok(typeof bill.status === 'string' && typeof bill.orderedAt === 'number');
+
+  // Every dish carries both figures. A count alone hides a dear item that sells few and earns a
+  // lot, which on this menu is the whole point of the 59-Baht bag.
+  assert.ok(body.items.every((i) => Number.isInteger(i.qty) && Number.isInteger(i.takings)));
+});
+
+test('the report page is behind the login, and a browser is sent to it', async () => {
+  // The day's money. Not open like the icons and the healthcheck — and a browser gets the login
+  // page rather than a 401 it cannot do anything with.
+  const page = await call('/sales', { headers: { accept: 'text/html' } });
+  assert.equal(page.status, 302);
+  assert.equal(page.headers.get('location'), '/login');
+
+  const api = await call('/api/sales');
+  assert.equal(api.status, 401);
+
+  const served = await asTill('/sales', { headers: { accept: 'text/html' } });
+  assert.equal(served.status, 200);
+  assert.match(await served.text(), /ยอดขายวันนี้/);
+});
+
 test('a path cannot climb out of public/', async () => {
   const res = await fetch(base + '/../server/index.js', {
     headers: { authorization: BASIC },

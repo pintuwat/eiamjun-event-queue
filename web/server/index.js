@@ -122,6 +122,15 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/summary') {
       return json(res, 200, { ok: true, ...db.dayTotals(dayFrom(url)) });
     }
+    /**
+     * Everything รายงานยอดขาย draws, in one read — see `salesReport`.
+     *
+     * Behind the ordinary login like every other read: this is the day's money, and the board it
+     * sits beside is already behind it.
+     */
+    if (req.method === 'GET' && url.pathname === '/api/sales') {
+      return json(res, 200, { ok: true, serverNow: Date.now(), ...db.salesReport(dayFrom(url)) });
+    }
 
     return await serveStatic(req, res);
   } catch (err) {
@@ -412,6 +421,10 @@ async function serveStatic(req, res) {
   let pathname = decodeURIComponent(url.pathname);
   if (pathname === '/') pathname = '/index.html';
   if (pathname === '/login') pathname = '/login.html';
+  // รายงานยอดขาย. A path of its own rather than a button on the board: the kitchen screen is
+  // worked with both hands full and a way off it is a way to lose the queue, so this is opened
+  // deliberately — typed once on the phone that wants it, and bookmarked.
+  if (pathname === '/sales') pathname = '/sales.html';
   // Older iOS probes the "precomposed" name when it does not like a page's declared icon. Same
   // file — that suffix only ever meant "don't add your own gloss", and nothing does that now.
   if (pathname === '/apple-touch-icon-precomposed.png') pathname = '/apple-touch-icon.png';

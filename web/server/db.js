@@ -2,9 +2,10 @@
  * The event's order book: one SQLite file through `node:sqlite`, so this server still has **zero
  * dependencies** and can be dropped on anything with Node.
  *
- * Two tables and a key/value row. There is no reporting here beyond a day's totals — the shop's
- * own server grew สรุปยอดขาย over months of service, and an event runs for a weekend; what the
- * kitchen needs is the orders that are not yet cooked.
+ * Two tables and a key/value row, and the reporting on top of them is **one day deep** — the
+ * shop's own server grew สรุปยอดขาย over months of service, with months to read back; an event
+ * runs for a weekend, and the question is always about the day in progress. `salesReport` is that
+ * day and nothing else: no month, no comparison against yesterday, no export.
  */
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
@@ -34,6 +35,25 @@ export function businessDay(at = Date.now(), timeZone = SHOP_TIMEZONE) {
     month: '2-digit',
     day: '2-digit'
   }).format(shifted);
+}
+
+/**
+ * The hour of the shop's own clock a moment falls in, 0–23.
+ *
+ * Read through `Intl` in [SHOP_TIMEZONE], never off the host: this runs on a VPS in UTC, and an
+ * hour taken from the machine would put a 19:00 service at noon.
+ */
+export function shopHour(at, timeZone = SHOP_TIMEZONE) {
+  return Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', hour12: false }).format(
+      new Date(at)
+    )
+  );
+}
+
+/** Where an hour sits in the trading day, so 23:00 sorts before the 01:00 that follows it. */
+export function tradingHour(hour) {
+  return (hour - DAY_STARTS_AT + 24) % 24;
 }
 
 /**
@@ -384,15 +404,70 @@ function api(db) {
           `SELECT status, COUNT(*) AS n FROM orders WHERE day = ? GROUP BY status`
         )
         .all(day);
+      // Both figures per dish, because they answer different questions: how many to prep more of,
+      // and what the day's money actually came from. A 59-Baht bag outsold two ways at once is
+      // invisible in a count alone.
       const items = db
         .prepare(
-          `SELECT l.name, SUM(l.qty) AS qty
+          `SELECT l.name, SUM(l.qty) AS qty, COALESCE(SUM(l.qty * l.unit_price), 0) AS takings
              FROM order_lines l JOIN orders o ON o.id = l.order_id
             WHERE o.day = ? AND o.status != 'cancelled'
             GROUP BY l.name ORDER BY qty DESC`
         )
         .all(day);
       return { day, ...row, byStatus, items };
+    },
+
+    /**
+     * Everything the รายงานยอดขาย page draws, in one read.
+     *
+     * One call rather than the page asking four times: it polls every few seconds, and four
+     * requests that can each fail separately give a screen that is half one moment and half
+     * another. The figures all come from the same instant this way.
+     *
+     * The day's totals are [dayTotals] rather than a second copy of that arithmetic — "cancelled
+     * is out of the takings" is a rule, and a rule written twice is a rule that will disagree with
+     * itself.
+     */
+    salesReport(day, limit = 12) {
+      const totals = this.dayTotals(day);
+      const bills = db
+        .prepare(
+          `SELECT queue_no, session, source, total, status, ordered_at
+             FROM orders WHERE day = ? ORDER BY ordered_at DESC, id DESC`
+        )
+        .all(day);
+
+      // Grouped here rather than in SQL because the hour has to be Bangkok's, and `ordered_at` is
+      // an epoch. Doing it in SQL would mean baking a UTC offset into a query — which is exactly
+      // how the shop's server once filed every evening's takings under the next day.
+      const hours = new Map();
+      for (const bill of bills) {
+        if (bill.status === 'cancelled') continue;
+        const hour = shopHour(bill.ordered_at);
+        const seen = hours.get(hour) || { hour, takings: 0, orders: 0 };
+        seen.takings += bill.total;
+        seen.orders += 1;
+        hours.set(hour, seen);
+      }
+
+      return {
+        ...totals,
+        // The trading day starts at 07:00, so that is where the clock is cut: 23:00 comes before
+        // 01:00 on this list, and a stall still serving at 00:30 is at the end of its own evening
+        // rather than at the start of a day nobody worked.
+        hours: [...hours.values()].sort(
+          (a, b) => tradingHour(a.hour) - tradingHour(b.hour)
+        ),
+        recent: bills.slice(0, limit).map((b) => ({
+          queueNo: b.queue_no,
+          session: b.session,
+          source: b.source,
+          total: b.total,
+          status: b.status,
+          orderedAt: b.ordered_at
+        }))
+      };
     },
 
     /**

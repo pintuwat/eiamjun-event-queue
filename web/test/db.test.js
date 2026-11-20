@@ -112,6 +112,52 @@ test('a collected order cannot be dragged back onto the board', () => {
   db.close();
 });
 
+test('the report cuts the hours on the trading day, not on midnight', () => {
+  const db = tempDb();
+  // 23:30 and 00:30 Bangkok — one evening, either side of the calendar's midnight. The second is
+  // later in the same service and has to sort after the first, or the report reads as the money
+  // having arrived before the stall opened.
+  db.recordOrder(order(1, { orderedAt: Date.UTC(2026, 10, 10, 16, 30), total: 100 }));
+  db.recordOrder(order(2, { orderedAt: Date.UTC(2026, 10, 10, 17, 30), total: 50 }));
+
+  const report = db.salesReport(DAY);
+  assert.deepEqual(
+    report.hours.map((h) => h.hour),
+    [23, 0]
+  );
+  assert.equal(report.takings, 150);
+  // Newest first, which is what a list somebody is watching has to be.
+  assert.deepEqual(report.recent.map((b) => b.queueNo), [2, 1]);
+  db.close();
+});
+
+test('a cancelled bill is out of the money but still on the list', () => {
+  const db = tempDb();
+  db.recordOrder(order(3, { total: 100 }));
+  db.recordOrder(order(4, { total: 60 }));
+  db.markCancelled(DAY, 4, 'pos');
+
+  const report = db.salesReport(DAY);
+  assert.equal(report.takings, 100, 'cancelled money was never taken');
+  assert.equal(report.hours.reduce((sum, h) => sum + h.takings, 0), 100);
+  // Still shown, struck through, because somebody reading this list is usually checking exactly
+  // that a mistake came back off the day.
+  assert.ok(report.recent.some((b) => b.queueNo === 4 && b.status === 'cancelled'));
+  db.close();
+});
+
+test('each dish carries both its count and its money', () => {
+  const db = tempDb();
+  db.recordOrder(order(5));
+  db.recordOrder(order(6));
+
+  const items = db.salesReport(DAY).items;
+  const noodles = items.find((i) => i.name === 'ก๋วยเตี๋ยวคลุก');
+  assert.equal(noodles.qty, 2);
+  assert.equal(noodles.takings, 100, '2 × 50');
+  db.close();
+});
+
 test('the poll says which orders the kitchen itself handed over', () => {
   const db = tempDb();
   db.recordOrder(order(7));

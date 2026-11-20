@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="ยอดขายอีเวนต์" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/app.css" />
+  <title>ยอดขายวันนี้ เอี้ยมจุ๊น</title>
+</head>
+<body class="report-page">
+  <!-- The day and the "how old is this" line are **in the figure's own card**, not up here. At
+       375px a bar carrying four things broke "ยอดขาย" over two lines and "ต่อเซิร์ฟเวอร์ได้" over
+       three, and ate a sixth of the screen saying nothing new. The link state stays, because it is
+       the one thing that is about the page rather than about the day. -->
+  <header class="bar">
+    <div class="bar-left">
+      <h1>ยอดขาย</h1>
+    </div>
+    <div class="bar-right">
+      <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
+    </div>
+  </header>
+
+  <!-- One scroller, with its own bottom padding for the home indicator: the pair the board's
+       floor screen shipped without once, which made the last row unreachable. -->
+  <main class="report" id="report">
+    <section class="headline">
+      <div class="headline-top">
+        <div class="takings">
+          <span class="takings-label">ยอดขายวันนี้ <span id="day"></span></span>
+          <span class="takings-figure" id="takings">—</span>
+        </div>
+        <div class="headline-side">
+          <div class="stat"><span id="bills">0</span><small>บิล</small></div>
+          <div class="stat"><span id="average">0</span><small>บาท/บิล</small></div>
+        </div>
+      </div>
+      <span class="headline-fresh" id="fresh"></span>
+    </section>
+
+    <section class="panel">
+      <h2>สถานะคิว</h2>
+      <div class="statuses" id="statuses"></div>
+    </section>
+
+    <section class="panel">
+      <h2>ขายดีวันนี้</h2>
+      <div class="items" id="items"></div>
+    </section>
+
+    <section class="panel">
+      <h2>ยอดรายชั่วโมง</h2>
+      <div class="hours" id="hours"></div>
+    </section>
+
+    <section class="panel">
+      <h2>บิลล่าสุด</h2>
+      <div class="bills" id="recent"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/sales.js"></script>
+</body>
+</html>

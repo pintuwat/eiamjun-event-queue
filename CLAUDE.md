@@ -508,7 +508,7 @@ bad clock is the worse failure.
 
 ## The kitchen board (`web/`)
 
-One page, five endpoints, no framework and no build step. iPad on a stand, read from a metre away,
+Two pages, no framework and no build step. iPad on a stand, read from a metre away,
 tapped with a wet hand — every size on it is larger than a web page's would be, and the พร้อมส่ง
 button is 60px rather than 44.
 
@@ -560,6 +560,51 @@ not red, because red on this board means a note the cook must not miss.
 and `.column` at equal specificity, so source order is the whole of what makes it win. Placed
 before them (where it was first written) a phone got two stacked internal scrollers with about a
 card and a half each, and the board looked like it held two orders when it held eight.
+
+### รายงานยอดขาย (`/sales`) — the day's money, live
+
+A second page on the same server, added 0.11.0 at the owner's request. It is **read-only and owns
+nothing**: the terminal owns the order, the kitchen owns one flag, and this one writes nothing at
+all, so it can sit open on a phone in a pocket for a whole service without any risk to it.
+
+**Deliberately not linked from the board.** The owner asked for that in those words, and it is the
+right call for the same reason ยกเลิก is behind a dialog: the kitchen screen is worked with both
+hands full, and a way *off* it is a way to lose the queue. It is opened by typing `/sales` once on
+the phone that wants it and bookmarking it. ⚠️ Which means nothing on the board advertises it — if
+somebody asks where the report went, that is the answer.
+
+**One request per tick, never four** (`GET /api/sales`). A page that asked separately for its
+totals, its dishes and its bills would show half of one moment beside half of another, and these
+are figures somebody acts on. It polls every 6s — slower than the board's 4s, because money is
+read rather than worked from and nothing on it is a race.
+
+**It says how old it is.** A report that has quietly stopped updating looks exactly like a stall
+that has stopped selling, and only one of those is worth reacting to — the same reasoning that
+puts the board's link state in words rather than in a dot. Under half a minute it says
+"เมื่อครู่นี้" rather than counting, because a number ticking every second reads as the takings
+moving.
+
+**Five things, in the order they are asked about:** the day's takings with bills and the average,
+the queue by status, ขายดี by dish, ยอดรายชั่วโมง, and the latest bills. Each dish carries **both**
+its count and its money, because they answer different questions — how much to prep, and where the
+day's money came from; a 59-Baht bag that sells six is invisible in a count beside a 50-Baht bowl
+that sells forty.
+
+**The hours are cut on the trading day, not on midnight** (`shopHour` + `tradingHour`), so 23:00
+sorts before the 01:00 that follows it and a stall still serving at 00:30 is at the end of its own
+evening. Grouped in JS rather than in SQL because the hour has to be Bangkok's and `ordered_at` is
+an epoch — baking an offset into a query is exactly how the shop's server once filed every
+evening's takings under the next day. `db.test.js` pins the 23:00 → 00:00 ordering.
+
+**A cancelled bill is struck through, not hidden.** It is already out of the takings, and somebody
+reading that list is usually checking precisely that a mistake came back off the day.
+
+⚠️ **`.bar` in `app.css` means the app bar at the top of a page, and has since the board was
+written.** The report's meters were called `.bar` for one commit: the header inherited
+`height: 10px; overflow: hidden` and collapsed to a sliver, while the meters inherited the
+header's padding and flex and drew nothing at all. One word, both halves broken, and only a
+screenshot said so. They are `.meter` now — a shared stylesheet is the one place a generic class
+name costs something.
 
 Auth is the shop's pattern: Basic for the terminal, a **signed session cookie** for the browser,
 and deliberately **no `WWW-Authenticate`** — that header is what makes Safari put up its own

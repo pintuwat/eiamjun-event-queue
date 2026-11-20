@@ -273,6 +273,161 @@ body {
 }
 
 
+/*
+ * ---- รายงานยอดขาย (/sales) ----
+ *
+ * Read on a phone, usually standing up, by the one person who wants to know how the day is going
+ * — so it is one column that scrolls, not a board. It shares this stylesheet rather than carrying
+ * its own: the colours, the wood bar and the paper are the stall's, and a second palette is the
+ * duplication this project keeps warning about.
+ *
+ * Placed after the board's narrow media query on purpose, and overlapping none of it: that query
+ * has to stay below `.cards` and `.column`, which is the whole of what makes it win.
+ */
+.report {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 14px;
+  padding-bottom: calc(18px + var(--safe-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* Centred rather than stretched: a figure and its label a tablet's width apart stop being read
+     as one thing. */
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
+.headline {
+  background: var(--wood);
+  color: var(--paper);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.headline-top {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+/* How old the figures are, under them rather than in the app bar: it qualifies the number, and a
+   page that has quietly stopped updating looks exactly like a stall that has stopped selling. */
+.headline-fresh { font-size: 15px; color: #c7b393; }
+
+/* This page's bar carries two words and they are not allowed to fall apart: Compose and the
+   browser alike break Thai with a dictionary, and "ยอด / ขาย" reads as a rendering fault. */
+.report-page .bar h1,
+.report-page .link-state { white-space: nowrap; }
+
+.takings { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.takings-label { font-size: 18px; color: #c7b393; }
+
+/* The one number this page exists for, so nothing else on it comes close. */
+.takings-figure {
+  font-size: 54px;
+  font-weight: 700;
+  color: var(--gold);
+  line-height: 1;
+}
+
+.headline-side { display: flex; gap: 18px; }
+
+.stat { display: flex; flex-direction: column; align-items: flex-end; }
+.stat span { font-size: 30px; font-weight: 700; }
+.stat small { font-size: 15px; color: #c7b393; }
+
+.panel {
+  background: var(--paper-dim);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+}
+
+/* Four boxes, always all four — see `drawStatuses`. They wrap rather than shrink, because a
+   two-digit count squeezed to fit is the one thing on the row that must stay readable. */
+.statuses { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.status {
+  flex: 1 1 110px;
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.status-n { font-size: 30px; font-weight: 700; line-height: 1.1; }
+.status small { font-size: 15px; color: var(--ink-dim); }
+.status-ready .status-n { color: var(--basil); }
+.status-waiting .status-n { color: var(--price); }
+.status-cancelled .status-n { color: var(--alert); }
+
+.items { display: flex; flex-direction: column; gap: 12px; }
+
+.item { display: flex; flex-direction: column; gap: 4px; }
+.item-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.item-name { font-size: 19px; font-weight: 600; min-width: 0; }
+.item-qty { font-size: 22px; font-weight: 700; color: var(--price); }
+.item-money { font-size: 15px; color: var(--ink-dim); }
+
+/*
+ * One meter drawn two ways — by dish and by hour — so the two sections cannot drift apart.
+ *
+ * ⚠️ Named `.meter` and not `.bar`, which this stylesheet has meant "the app bar at the top of
+ * the page" since the board was written. Calling it `.bar` gave the header `height: 10px` and
+ * `overflow: hidden` and collapsed it to a sliver, while the meters themselves inherited the
+ * header's padding and flex and drew nothing at all — one word, both halves broken, and the
+ * screenshot was the only thing that said so.
+ */
+.meter {
+  background: #fff;
+  border-radius: 999px;
+  height: 10px;
+  overflow: hidden;
+}
+
+.meter-fill { background: var(--basil); height: 100%; border-radius: 999px; }
+
+.hours { display: flex; flex-direction: column; gap: 8px; }
+
+.hour { display: flex; align-items: center; gap: 10px; }
+.hour-clock { font-size: 16px; color: var(--ink-dim); width: 54px; flex: 0 0 auto; }
+.hour .meter { flex: 1 1 auto; }
+.hour-money { font-size: 16px; font-weight: 700; width: 70px; text-align: right; flex: 0 0 auto; }
+
+.bills { display: flex; flex-direction: column; gap: 8px; }
+
+.bill {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.bill-queue { font-size: 19px; font-weight: 700; }
+.bill-when { font-size: 15px; color: var(--ink-dim); }
+.bill-total { font-size: 20px; font-weight: 700; margin-left: auto; }
+
+/* Struck through and dimmed rather than hidden: a cancelled bill is out of the takings above, and
+   somebody reading this list is usually checking exactly that. */
+.bill.cancelled { opacity: 0.55; }
+.bill.cancelled .bill-total { text-decoration: line-through; }
+
 /* ---- login ---- */
 body.centered {
   display: flex;
