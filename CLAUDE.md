@@ -529,11 +529,28 @@ happen for four seconds taps again, and the second tap is what puts two of the s
 ส่งของแล้ว takes the card off the board the same way, and the poll in its `finally` is what puts it
 back if the write never landed.
 
-**The dish name is 27px, bigger than the options under it and second only to the number**
-(0.10.0, at the stall's word: "ขยายตัวหนังสือจอครัว...ที่เป็นชื่อเมนู เลขคิวใหญ่พอแล้วในจอ"). It
-is what the cook acts on, read off a stand a metre away with both hands full. The `2×` grew with
-it — a count that stays small beside a big name stops reading as the quantity *of* that name — and
-the queue number did not, because it was already large enough on screen.
+**The dish name is 27px and the options and note under it 24px, second only to the number**
+(0.10.0, at the stall's word: "ขยายตัวหนังสือจอครัว...ที่เป็นชื่อเมนู เลขคิวใหญ่พอแล้วในจอ", then
+"ขอเส้นหมี่ กับ แคปป๊อปถังใหญ่ขึ้นด้วย"). All three are what the cook acts on — "เส้นหมี่ ·
+แคปป๊อปถัง" is as much an instruction as the dish above it — read off a stand a metre away with
+both hands full. The options keep a clear step below the name, or the card becomes a paragraph.
+The `2×` grew with the name, since a count that stays small beside a big one stops reading as the
+quantity *of* it; the queue number did not, because it was already large enough on screen.
+
+⚠️ **The browser breaks Thai mid-word, and the bigger type is what made it show.** "ลูกชิ้นล้วน"
+came out as "ลูก" over "ชิ้นล้วน" — the dictionary break this project has already paid for twice,
+on the printed ticket and on the till's own keypad. **`word-break: keep-all` does not stop it**
+(tried, on this page, in the pane), so the page picks the breaks itself: `phrases()` puts each
+space-separated phrase in its own `nowrap` span, and a line can then only break where the staff
+typed a space.
+
+The way out, for a phrase with no space in it that is wider than the card, is `releaseWidePhrases`
+— measured after layout and handed back to the browser, because a phrase pushed out of the card is
+worse than the break it avoids. ⚠️ It needs **`min-width: 0` on `.card` and `.line-body`** to work
+at all: a grid or flex item will not shrink below its own min-content width, so without it one
+unbreakable phrase widened the whole card and the measurement saw a parent exactly as wide as the
+phrase and found nothing wrong. Both were checked on a throwaway board with a 40-character note
+containing no spaces.
 
 **กำลังทำ is oldest first; พร้อมส่ง is newest first.** A kitchen cooks in the order the orders
 arrived; the one just finished is the one being called. A card past 12 minutes gets a gold edge —

@@ -75,6 +75,8 @@ function render() {
   draw(el.waiting, waiting.sort(byOrderedAt), false, 'ไม่มีคิวรอทำ');
   // Ready ones newest first — the one just finished is the one being called.
   draw(el.ready, ready.sort((a, b) => (b.readyAt || 0) - (a.readyAt || 0)), true, 'ยังไม่มีคิวพร้อมส่ง');
+
+  releaseWidePhrases();
 }
 
 function byOrderedAt(a, b) {
@@ -139,18 +141,18 @@ function card(order, isReady) {
     body.className = 'line-body';
     const name = document.createElement('div');
     name.className = 'line-name';
-    name.textContent = line.name;
+    phrases(name, line.name);
     body.append(name);
     if (line.options) {
       const options = document.createElement('div');
       options.className = 'line-options';
-      options.textContent = line.options;
+      phrases(options, line.options);
       body.append(options);
     }
     if (line.note) {
       const note = document.createElement('div');
       note.className = 'line-note';
-      note.textContent = line.note;
+      phrases(note, line.note);
       body.append(note);
     }
     row.append(qty, body);
@@ -178,6 +180,47 @@ function card(order, isReady) {
 
   root.append(top, lines, button);
   return root;
+}
+
+/**
+ * Fills an element with its text, broken **between words and nowhere else**.
+ *
+ * Thai writes no spaces inside a word, so a browser breaks it with a dictionary — which is right
+ * for a paragraph and wrong for a card read at a glance: "ลูกชิ้นล้วน" came out as "ลูก" over
+ * "ชิ้นล้วน", which reads as a rendering fault rather than as a note. `word-break: keep-all` does
+ * not stop it (checked in the pane, on this page), so the break points are chosen here instead —
+ * the same conclusion the printed slip reached, and the same rule the till's keypad already has.
+ *
+ * Each space-separated phrase is its own `nowrap` span, so a line can only break where the staff
+ * typed a space. `releaseWidePhrases` is the way out when even one phrase is wider than the card.
+ */
+function phrases(into, text) {
+  String(text)
+    .split(' ')
+    .forEach((word, i) => {
+      if (i) into.append(' ');
+      const span = document.createElement('span');
+      span.className = 'phrase';
+      span.textContent = word;
+      into.append(span);
+    });
+}
+
+/**
+ * The last resort: a phrase with nowhere to break that is wider than the line it sits on.
+ *
+ * Holding it unbroken would push it out of the card, which is worse than the mid-word break this
+ * avoids everywhere else — so that one phrase is handed back to the browser. Measured rather than
+ * guessed at by counting characters, because the font is proportional and no count describes it.
+ *
+ * Run after the cards are in the document, since nothing can be measured before it is laid out.
+ */
+function releaseWidePhrases() {
+  for (const span of document.querySelectorAll('.phrase')) {
+    if (span.getBoundingClientRect().width > span.parentElement.clientWidth) {
+      span.style.whiteSpace = 'normal';
+    }
+  }
 }
 
 /**
