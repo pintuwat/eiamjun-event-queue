@@ -619,6 +619,15 @@ identical. Read off the live schema rather than a hand-bumped version string —
 until somebody forgets to bump it, and this reports the capability itself. Named capabilities, not
 column names: the healthcheck says what the server can do, never what is in it.
 
+⚠️ **During a redeploy the healthcheck alternates between the old build and the new one, and
+that is the rollover rather than two servers.** Coolify starts the new container before retiring
+the old one, so for a minute or two `/api/health` answers from whichever the proxy picked — on
+2026-11-20 it came back `picked-list` / no `picked-list` / `picked-list` on alternate requests,
+which reads exactly like two containers stuck side by side. **Ask it ten times before concluding
+anything**: it settled to 10 of 10 on the new build about three minutes after the push. Both
+containers mount the same `/data`, so nothing was ever split between two order books — but that
+is the thing to check first if it ever does *not* settle.
+
 **A status call for an order the server has never seen answers `200 {changed:false}`, not 404.** The
 till may mark something collected while its own order push is still in the outbox, and a 404 would
 make that outbox retry forever.
