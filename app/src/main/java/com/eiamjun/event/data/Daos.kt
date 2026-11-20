@@ -150,6 +150,26 @@ interface OrderDao {
     @Query("UPDATE orders SET status = 'picked', pickedAt = :at WHERE id = :id")
     suspend fun markPicked(id: Long, at: Long = System.currentTimeMillis())
 
+    /**
+     * The same transition, driven by the kitchen board's own ส่งของแล้ว through the poll.
+     *
+     * Guarded where [markPicked] is not, because this one is applied to whatever the server says
+     * rather than to an order the staff are looking at: `status IN ('waiting', 'ready')` is what
+     * stops a stale list resurrecting a cancelled order as a collected one. It also makes the call
+     * idempotent, so the poll can run every few seconds and write nothing.
+     *
+     * Two writers for one flag is exactly what this app's one architectural rule forbids, and the
+     * reason it holds here is that `picked` is a **latch**: both sides write the same value, the
+     * value is never written back, and whoever is second writes nothing at all. ready/waiting is a
+     * toggle and could never be shared this way — which is why the kitchen's flag is still the
+     * kitchen's alone.
+     */
+    @Query(
+        "UPDATE orders SET status = 'picked', pickedAt = :at " +
+            "WHERE id = :id AND status IN ('waiting', 'ready')"
+    )
+    suspend fun markPickedIfOpen(id: Long, at: Long = System.currentTimeMillis())
+
     @Query("UPDATE orders SET status = 'cancelled' WHERE id = :id")
     suspend fun markCancelled(id: Long)
 

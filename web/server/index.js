@@ -172,11 +172,27 @@ function handleBoard(url, res) {
   });
 }
 
-/** What the terminal polls. The whole truth for that day, so the board's undo propagates back. */
+/**
+ * What the terminal polls.
+ *
+ * `ready` is the whole truth for that day, which is what makes the board's undo propagate back:
+ * a number taken off this list goes back to กำลังทำ on the till too.
+ *
+ * `picked` is the opposite kind of list — things that have happened and cannot un-happen. It is
+ * here because the board can now close an order itself, and the till has to be able to tell that
+ * from "not ready": without it, a card the kitchen handed over would be flipped back to กำลังทำ by
+ * the next poll and sit on the till's queue for the rest of the day.
+ */
 function handleReadyList(url, res) {
   const day = dayFrom(url);
   const source = String(url.searchParams.get('source') || 'pos');
-  return json(res, 200, { ok: true, day, source, ready: db.readyQueueNos(day, source) });
+  return json(res, 200, {
+    ok: true,
+    day,
+    source,
+    ready: db.readyQueueNos(day, source),
+    picked: db.pickedQueueNos(day, source)
+  });
 }
 
 async function handleStatus(req, res, action) {

@@ -1,9 +1,15 @@
 /**
  * The kitchen board.
  *
- * It polls, it draws, and it has exactly one button. Everything else about an order belongs to the
- * terminal — which is what means the two sides never have to be reconciled, so this page can be
- * this small and still be trusted during a service.
+ * It polls, it draws, and each card has one button: พร้อมส่ง while it cooks, **ส่งของแล้ว** once
+ * it is ready. The second one is new, and it is the kitchen writing a flag the terminal also
+ * writes — which the one architectural rule of this app says must not happen. It is safe here for
+ * one reason and only one: `picked` is a **latch**, not a toggle. Both sides write the same value,
+ * nothing ever writes it back, and the `WHERE` clause on each side refuses a row that has moved
+ * on. ready/waiting could never be shared like this, which is why the kitchen's own flag is still
+ * the kitchen's alone and the poll still takes its list as the whole truth.
+ *
+ * Everything else about an order — its contents, its number, its money — belongs to the terminal.
  *
  * Plain ES modules, no framework, no build step: this is served off a laptop or a small container
  * at a stall, and it has to keep working when nobody is around to rebuild it.
@@ -153,10 +159,18 @@ function card(order, isReady) {
 
   const button = document.createElement('button');
   if (isReady) {
-    button.className = 'undo';
-    button.textContent = 'ยังไม่พร้อม';
-    button.addEventListener('click', () => setReady(order, false, button));
+    // ส่งของแล้ว took the undo's place at the stall's word. Handing the bag over happens to every
+    // single order and is now done by the people standing at this board, so it is the one thing a
+    // ready card is for; ยังไม่พร้อม was pressed when somebody had mis-tapped, which is rarer than
+    // the step it was crowding out. The cost is accepted rather than unnoticed: there is no way
+    // back from this tap on either screen, exactly as there has never been one from the till's own
+    // ส่งของแล้ว.
+    button.textContent = 'ส่งของแล้ว';
+    button.addEventListener('click', () => pick(order, button));
   } else {
+    // Deliberately **not** also offering ส่งของแล้ว here. A cooking card is the one place a
+    // mis-tap on an irreversible button costs a bowl nobody has, and the queue it belongs to is
+    // two taps away: พร้อมส่ง, then hand it over.
     button.textContent = 'พร้อมส่ง';
     button.addEventListener('click', () => setReady(order, true, button));
   }
@@ -177,7 +191,7 @@ function key(order) {
 }
 
 /**
- * The one write this page makes.
+ * พร้อมส่ง and its undo — the kitchen's own flag, which no other screen writes.
  *
  * The card is moved **locally first** and the poll corrects it afterwards: a cook who taps and
  * watches nothing happen for four seconds taps again, and the second tap is what puts two of the
@@ -214,6 +228,48 @@ async function setReady(order, ready, button) {
     pending.delete(id);
     // Straight back to the server's picture, so a failed tap does not leave the board telling the
     // cook something the till will never hear about.
+    poll();
+  }
+}
+
+/**
+ * ส่งของแล้ว — the bag is in the customer's hands and the order is closed.
+ *
+ * The card goes off the board locally before the request is sent, like พร้อมส่ง, and the poll in
+ * `finally` is what puts it back if the write never landed. There is nothing here to double-tap
+ * since the card is gone, but a failed write must not leave the board telling the cook an order
+ * was handed over when the till will never hear about it.
+ *
+ * `/api/orders/picked` is the endpoint the terminal's own outbox has always used for this, with
+ * the same body. Nothing on the server had to learn a new shape — only the terminal's poll, which
+ * now reads back which numbers have been collected so a card closed here also leaves the till's
+ * queue instead of being flipped back to กำลังทำ by the next poll.
+ */
+async function pick(order, button) {
+  const id = key(order);
+  pending.add(id);
+  button.disabled = true;
+
+  board.orders = board.orders.filter((o) => key(o) !== id);
+  render();
+
+  try {
+    const res = await fetch('/api/orders/picked', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        day: board.day,
+        queueNo: order.queueNo,
+        session: order.session,
+        source: order.source
+      })
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    setLink(true);
+  } catch {
+    setLink(false);
+  } finally {
+    pending.delete(id);
     poll();
   }
 }

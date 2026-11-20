@@ -112,6 +112,40 @@ test('a collected order cannot be dragged back onto the board', () => {
   db.close();
 });
 
+test('the poll says which orders the kitchen itself handed over', () => {
+  const db = tempDb();
+  db.recordOrder(order(7));
+  db.recordOrder(order(8));
+  // What the board's own ส่งของแล้ว does. Without this list the till reads #7's absence from the
+  // ready list as "not ready" and puts the card it has already handed over back into กำลังทำ.
+  db.markPicked(DAY, 7, 'pos');
+
+  assert.deepEqual(db.pickedQueueNos(DAY, 'pos'), [{ session: 1, queueNo: 7 }]);
+  assert.deepEqual(db.readyQueueNos(DAY, 'pos'), [], 'collected is not ready');
+  assert.deepEqual(
+    db.openOrders(DAY).map((o) => o.queue_no),
+    [8],
+    'and it is off the board'
+  );
+  db.close();
+});
+
+test('the collected list is per terminal and per round, like the ready one', () => {
+  const db = tempDb();
+  db.recordOrder(order(1, { source: 'pos' }));
+  db.recordOrder(order(1, { source: 'pos-2' }));
+  db.recordOrder(order(1, { session: 2 }));
+
+  db.markPicked(DAY, 1, 'pos', 2);
+
+  // Only the afternoon's #1 on this till. The morning's is still owed to a customer, and the
+  // other terminal's #1 is a different order entirely — the round and the source are both part of
+  // what identifies one.
+  assert.deepEqual(db.pickedQueueNos(DAY, 'pos'), [{ session: 2, queueNo: 1 }]);
+  assert.deepEqual(db.pickedQueueNos(DAY, 'pos-2'), []);
+  db.close();
+});
+
 test('a cancelled order is out of the takings and off the board', () => {
   const db = tempDb();
   db.recordOrder(order(5));

@@ -191,15 +191,20 @@ body {
 .line { display: flex; gap: 10px; align-items: baseline; }
 
 .line-qty {
-  font-size: 26px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--price);
-  min-width: 34px;
+  min-width: 38px;
 }
 
 .line-body { flex: 1 1 auto; }
-.line-name { font-size: 21px; font-weight: 600; }
-.line-options { font-size: 19px; color: var(--ink-dim); }
+/* The dish is what the cook acts on, so it is the biggest thing on the card after the number —
+   27px at the stall's word ("ขยายตัวหนังสือ...ที่เป็นชื่อเมนู"), read off a stand a metre away
+   with both hands full. The queue number is untouched: it was already large enough on screen.
+   The count grew with it, because a `2×` that stays small beside a big name stops reading as the
+   quantity of that name. */
+.line-name { font-size: 27px; font-weight: 600; }
+.line-options { font-size: 20px; color: var(--ink-dim); }
 /* A note is the one thing on the card that changes what goes in the bowl, so it is the one thing
    allowed to be loud. */
 .line-note { font-size: 19px; color: var(--alert); font-weight: 700; }
@@ -215,14 +220,6 @@ body {
   background: var(--basil);
   color: #fff;
   cursor: pointer;
-}
-
-.card button.undo {
-  background: transparent;
-  color: var(--ink-dim);
-  border: 1px solid #d8c9ab;
-  min-height: 52px;
-  font-size: 19px;
 }
 
 .card button:disabled { opacity: 0.5; }

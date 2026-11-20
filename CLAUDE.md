@@ -60,10 +60,45 @@ The till issues the queue number, records the order, prints, and decides when it
 collected. The board writes exactly one thing — ready / not ready — and `applyReadySet` takes that
 list as **the whole truth** for this day's open orders.
 
-That absoluteness is what makes the board's ยังไม่พร้อม undo reach the till, and it is only safe
-because no field is written by both sides. There is no conflict to resolve because there is no
-second writer. Anything added later that both sides could write breaks this and needs a different
-answer.
+That absoluteness is what makes the board's undo reach the till, and it is only safe because no
+field is written by both sides. There is no conflict to resolve because there is no second writer.
+Anything added later that both sides could write breaks this and needs a different answer.
+
+**One thing now is, and here is that answer: `picked` is a latch, not a toggle.** The board grew
+its own **ส่งของแล้ว** (0.10.0) because the people handing the bag over are standing at it — until
+then only the till could close an order, so ready cards piled up on a board nobody could clear.
+Both sides write that flag now, and it is safe for reasons that do not generalise to any other
+field:
+
+- Both write the **same value**. There is no disagreement to resolve, only a race to be first.
+- It is **never written back**. No screen un-collects an order, so there is no state to flip.
+- Whoever is second **writes nothing**: the `WHERE` clause on each side (`status IN ('waiting',
+  'ready')` locally, `status != 'cancelled'` on the server) refuses a row that has moved on.
+
+ready/waiting has none of those properties and could never be shared this way, which is why the
+kitchen's own flag is still the kitchen's alone and the poll still takes its list as the whole
+truth.
+
+⚠️ **The till has to be told, or the fix is worse than the gap.** A collected order leaves the
+ready list too, and the till reads that absence as "not ready" — so without the other half, a bag
+the kitchen handed over flips back to กำลังทำ on the terminal and sits on its queue all day. The
+poll (`/api/orders/ready`) therefore carries a **`picked` list beside `ready`**, and
+`applyPickedSet` runs **before** `applyReadySet` in the same poll: the other order flips the card
+back and then finds nothing open to close.
+
+`picked` is read in the opposite spirit to `ready` and the comments say so: `ready` is the whole
+truth, so absence means *not ready*; `picked` is a list of things that have happened, so absence
+means **nothing at all**. An additive list is the only shape a two-writer flag can safely take.
+
+⚠️ **The way back from a mis-tap went with it.** ยังไม่พร้อม came off the card at the shop's word
+("ไม่ต้องมีปุ่ม ยังไม่พร้อมก็ได้") to make room, so a ready card now has exactly one button and
+nothing on either screen undoes a collection — the same irreversibility the till's own ส่งของแล้ว
+has always had. ส่งของแล้ว is deliberately **not** offered on a card that is still cooking: that
+is where a mis-tap costs a bowl nobody has, and the queue it belongs to is two taps away.
+
+**Deploy `web/` before the APK**, as always: a terminal on the new build against an old server
+gets no `picked` field and silently keeps the cards the kitchen closed. `/api/health` reports
+`picked-list` so that can be checked from outside without a password.
 
 Two consequences worth keeping:
 
@@ -491,6 +526,14 @@ the link state is said in words at the top.
 
 **The card moves locally first and the poll corrects it.** A cook who taps and watches nothing
 happen for four seconds taps again, and the second tap is what puts two of the same bowl on a pass.
+ส่งของแล้ว takes the card off the board the same way, and the poll in its `finally` is what puts it
+back if the write never landed.
+
+**The dish name is 27px, bigger than the options under it and second only to the number**
+(0.10.0, at the stall's word: "ขยายตัวหนังสือจอครัว...ที่เป็นชื่อเมนู เลขคิวใหญ่พอแล้วในจอ"). It
+is what the cook acts on, read off a stand a metre away with both hands full. The `2×` grew with
+it — a count that stays small beside a big name stops reading as the quantity *of* that name — and
+the queue number did not, because it was already large enough on screen.
 
 **กำลังทำ is oldest first; พร้อมส่ง is newest first.** A kitchen cooks in the order the orders
 arrived; the one just finished is the one being called. A card past 12 minutes gets a gold edge —

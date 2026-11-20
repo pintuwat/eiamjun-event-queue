@@ -210,6 +210,46 @@ test('collecting an order takes it off the board', async () => {
   assert.equal(body.orders.some((o) => o.queueNo === 4), false);
 });
 
+// The kitchen board's own ส่งของแล้ว, over the wire it actually uses. The write was always
+// accepted; what had to be proved is the other half — that the terminal's poll can tell a card
+// the kitchen closed from one that is merely not ready. Without it the next poll flips a bag that
+// has been handed over back into กำลังทำ and keeps it on the till's queue all day.
+test('a card closed in the kitchen reaches the till through its poll', async () => {
+  await asTill('/api/orders', { method: 'POST', body: order(31) });
+  await asTill('/api/orders', { method: 'POST', body: order(32) });
+  await asTill('/api/orders/ready', {
+    method: 'POST',
+    body: { day: DAY, queueNo: 31, session: 1, source: 'pos' }
+  });
+
+  // What the board sends when ส่งของแล้ว is tapped on a ready card.
+  const handed = await asTill('/api/orders/picked', {
+    method: 'POST',
+    body: { day: DAY, queueNo: 31, session: 1, source: 'pos' }
+  });
+  assert.equal(handed.status, 200);
+  assert.equal((await handed.json()).changed, true);
+
+  const poll = await (await asTill(`/api/orders/ready?day=${DAY}&source=pos`)).json();
+  assert.deepEqual(
+    poll.picked.filter((p) => p.queueNo === 31),
+    [{ session: 1, queueNo: 31 }],
+    'the till is told it was collected, not merely that it is no longer ready'
+  );
+  assert.equal(poll.ready.some((r) => r.queueNo === 31), false);
+
+  const board = await (await asTill(`/api/orders?day=${DAY}`)).json();
+  assert.equal(board.orders.some((o) => o.queueNo === 31), false, 'and it is off the board');
+  assert.equal(board.orders.some((o) => o.queueNo === 32), true, 'the one beside it is untouched');
+});
+
+test('the healthcheck says the poll can carry collected numbers', async () => {
+  // A terminal on the new build against an old server silently keeps those cards, and nothing
+  // else would say so from outside: every read endpoint is behind auth.
+  const health = await (await call('/api/health')).json();
+  assert.ok(health.features.includes('picked-list'), JSON.stringify(health.features));
+});
+
 test('a status call for an order the server has never seen is ok, not an error', async () => {
   // The till may mark something collected while its own order push is still in the outbox, and a
   // 404 here would make that outbox retry the message forever.

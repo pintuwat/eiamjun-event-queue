@@ -9,6 +9,7 @@ import com.eiamjun.event.data.OutboxKind
 import com.eiamjun.event.data.QueueKey
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.json.JSONArray
 import org.json.JSONObject
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -89,7 +90,8 @@ class KitchenSync @Inject constructor(
     }
 
     /**
-     * Asks which queue numbers the kitchen has marked พร้อมส่ง, and marks them locally.
+     * Asks what the kitchen has marked พร้อมส่ง — and, since the board grew its own ส่งของแล้ว,
+     * what it has handed over. Both are applied locally.
      *
      * Failing is **silent**. The poll runs every few seconds while the queue screen is open, and
      * an event with no wifi would otherwise write a red line into the log a dozen times a minute
@@ -106,25 +108,37 @@ class KitchenSync @Inject constructor(
             // the caller leaves the till's picture alone.
             val array = payload.optJSONArray("ready")
                 ?: throw ServerClient.ServerError(200, "เซิร์ฟเวอร์ตอบไม่ครบ")
-            val ready = (0 until array.length()).map { i ->
-                // `{session, queueNo}` is what this server sends. A bare number is what one that
-                // predates the column sends, and it can only mean the first round — the shim is
-                // for the minutes between deploying the server and installing the terminal, and a
-                // null round matches by number alone rather than guessing.
-                val entry = array.optJSONObject(i)
-                if (entry != null) {
-                    QueueKey(
-                        session = entry.optInt("session").takeIf { it > 0 },
-                        queueNo = entry.optInt("queueNo")
-                    )
-                } else {
-                    QueueKey(session = null, queueNo = array.getInt(i))
-                }
-            }
+            val ready = keysIn(array)
+            // Collected first, and the order matters: the kitchen's own ส่งของแล้ว takes a card
+            // off the ready list as well, so applying that list first would flip the order back
+            // to กำลังทำ and leave nothing open to close. Absent is an **empty list**, not a
+            // failure — a server that predates the field says nothing about collections, and
+            // `applyPickedSet` is additive, so saying nothing changes nothing.
+            payload.optJSONArray("picked")?.let { orders.applyPickedSet(day, keysIn(it)) }
             orders.applyReadySet(day, ready)
             ready.size
         }
     }
+
+    /**
+     * Reads a `[{session, queueNo}]` list, as both of this server's queue lists are shaped.
+     *
+     * A bare number is what a server predating the round column sends, and it can only mean the
+     * first round — the shim is for the minutes between deploying the server and installing the
+     * terminal. A null round matches by number alone rather than guessing at one.
+     */
+    private fun keysIn(array: JSONArray): List<QueueKey> =
+        (0 until array.length()).map { i ->
+            val entry = array.optJSONObject(i)
+            if (entry != null) {
+                QueueKey(
+                    session = entry.optInt("session").takeIf { it > 0 },
+                    queueNo = entry.optInt("queueNo")
+                )
+            } else {
+                QueueKey(session = null, queueNo = array.getInt(i))
+            }
+        }
 
     /** ตั้งค่า → ทดสอบเชื่อมต่อ. The one place a failure is worth saying out loud. */
     suspend fun checkConnection(): Result<String> =

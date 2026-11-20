@@ -339,6 +339,34 @@ function api(db) {
         .map((row) => ({ session: row.session, queueNo: row.queue_no }));
     },
 
+    /**
+     * Which of this terminal's orders have been **collected**, for the same poll.
+     *
+     * The board can now close an order itself (ส่งของแล้ว on a ready card), and without this the
+     * till would never hear: the order leaves `readyQueueNos`, the till reads that as "not ready",
+     * and the next poll would flip a card the staff have handed over back to กำลังทำ and keep it
+     * on the queue for the rest of the day.
+     *
+     * Unlike the ready list this is **not** the whole truth about anything — it is a list of
+     * things that have happened and cannot un-happen. The till adds them and never removes on
+     * their absence, which is what makes it safe for both sides to write the flag at all: one
+     * value, written once, from either end.
+     *
+     * The whole day, because an order collected an hour ago may belong to a terminal that has been
+     * offline since, and a list of a few hundred numbers is a fraction of what the board itself
+     * polls.
+     */
+    pickedQueueNos(day, source) {
+      return db
+        .prepare(
+          `SELECT session, queue_no FROM orders
+            WHERE day = ? AND source = ? AND status = 'picked'
+            ORDER BY session, queue_no`
+        )
+        .all(day, source)
+        .map((row) => ({ session: row.session, queueNo: row.queue_no }));
+    },
+
     linesFor(orderId) {
       return db.prepare('SELECT * FROM order_lines WHERE order_id = ? ORDER BY id').all(orderId);
     },
@@ -385,6 +413,15 @@ function api(db) {
       // The reset-opens-a-round fix. Without the column, the server still replaces on
       // `(day, source, queue_no)` and a reset mid-day overwrites a paid order.
       if (columns.includes('session')) features.push('queue-rounds');
+      // The board's own ส่งของแล้ว. The write it makes was always accepted; what is new is this
+      // server telling the terminal's poll which orders were closed that way, so a card closed in
+      // the kitchen also leaves the till's queue. Worth reporting because a terminal on the newer
+      // build against an older server silently keeps those cards and nothing else would say so.
+      //
+      // Checked against the function rather than a column, because this one adds no column — it
+      // is the nearest thing to the schema read the rest of this list uses: delete the code and
+      // the capability stops being claimed, which a hand-written string would not do.
+      if (typeof this.pickedQueueNos === 'function') features.push('picked-list');
       return features;
     },
 

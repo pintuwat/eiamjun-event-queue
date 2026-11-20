@@ -166,6 +166,33 @@ class OrderRepository @Inject constructor(
     }
 
     /**
+     * Takes the kitchen's **collected** list as things that have happened, never as a whole truth.
+     *
+     * The board grew its own ส่งของแล้ว, so an order can be closed in the kitchen as well as at
+     * the till. This is how the till hears about it. Note what it deliberately does not do: an
+     * order *absent* from the list is left exactly as it is. [applyReadySet] can be absolute
+     * because the kitchen owns that flag outright; nobody owns this one, so the only safe reading
+     * of the list is additive — these are collected, and about the rest it says nothing.
+     *
+     * Must run **before** [applyReadySet] in the same poll. A collected order is gone from the
+     * kitchen's ready list too, so applying that list first would flip the card back to กำลังทำ
+     * and then find nothing open to collect.
+     *
+     * @return how many orders this closed.
+     */
+    suspend fun applyPickedSet(day: String, picked: Collection<QueueKey>): Int {
+        if (picked.isEmpty()) return 0
+        var changed = 0
+        orders.openIdentities(day).forEach { open ->
+            if (picked.any { it.matches(open) }) {
+                orders.markPickedIfOpen(open.id)
+                changed++
+            }
+        }
+        return changed
+    }
+
+    /**
      * Marked ready here rather than by the board — the override for an unreachable kitchen.
      *
      * Written locally **and** queued, because the kitchen's list is the whole truth for this flag
