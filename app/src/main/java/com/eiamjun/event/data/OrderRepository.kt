@@ -12,6 +12,36 @@ object OptionJoin {
     const val SEPARATOR = " · "
 }
 
+/**
+ * How a promotion reaches the books: as **a discount line of its own**, never as an averaged price.
+ *
+ * 3 bottles for 100 cannot be written as an integer price per bottle, so something has to give, and
+ * the choice is which figure is allowed to be wrong. Two shapes were available:
+ *
+ * | Written as | What goes wrong |
+ * |---|---|
+ * | A bundle line — qty 1 at 100, the way the shop's till does it | `order_lines.qty` becomes bundles, so รายงาน's "ขายดี" counts 1 where 3 bottles were sold. The shop's server needs a whole table of roll-up rules (`ROLL_UPS`) to undo it, each keyed on a **name** |
+ * | The dish at its own price, plus one discount line | Nothing. The bottles are 3 bottles, the money reconciles, and no figure anywhere is read off a name |
+ *
+ * So the dish line is untouched — qty in bottles, at the price on the menu — and the saving is a
+ * second line carrying a negative unit price. `qty × unitPrice` stays true on every row, which the
+ * receipt, the server and every report are all built on, and the customer gets to see the deal they
+ * were given instead of an odd-looking price.
+ *
+ * The one cost is a row in the report named for the discount rather than for food, which is why it
+ * is named per dish: two promotions must not merge into one line nobody can take apart.
+ */
+object Promo {
+    /** The discount's own name in the books. Per dish, so two deals never share a report row. */
+    fun lineName(itemName: String): String = "ส่วนลด $itemName"
+
+    /** What the deal is, for the receipt and the report to read back. */
+    fun lineOptions(promoQty: Int, promoPrice: Int): String = "โปรฯ $promoQty ชิ้น $promoPrice.-"
+
+    /** What the pad's key says under the price. */
+    fun keyNote(promoQty: Int, promoPrice: Int): String = "$promoQty ชิ้น $promoPrice.-"
+}
+
 /** A line sitting on the pad, before any money has been taken. */
 data class CartLine(
     val itemId: Long,
@@ -19,9 +49,35 @@ data class CartLine(
     val optionsSummary: String,
     val note: String,
     val qty: Int,
-    val unitPrice: Int
+    val unitPrice: Int,
+    /**
+     * The dish's deal, copied here at the moment it was tapped — or zeroes for no deal.
+     *
+     * Carried on the line rather than looked up at charge time for the same reason the name and
+     * the price are: a price edited in แก้ไขเมนู between the tap and the payment must not change
+     * what the customer was quoted on the pad.
+     *
+     * ⚠️ **Only passed through when no option moved the price.** The deal is the dish's own, priced
+     * against the menu's figure; applying it to a line an option has made dearer would charge the
+     * bundle price for the dearer thing. Every dish with a deal has nothing to ask, so this costs
+     * nothing today — and the day one does, it fails by charging the ordinary price.
+     */
+    val promoQty: Int = 0,
+    val promoPrice: Int = 0
 ) {
-    val total: Int get() = unitPrice * qty
+    private val hasPromo: Boolean get() = promoQty > 1 && promoPrice > 0
+
+    /** Whole bundles this line has earned. */
+    val bundles: Int get() = if (hasPromo) qty / promoQty else 0
+
+    /**
+     * What the deal takes off, as a positive number. Zero unless it is worth having — a bundle
+     * priced above buying singly is a typo, and must do nothing rather than overcharge.
+     */
+    val discount: Int
+        get() = if (bundles == 0) 0 else (bundles * (promoQty * unitPrice - promoPrice)).coerceAtLeast(0)
+
+    val total: Int get() = unitPrice * qty - discount
 
     /**
      * What makes two taps the same line. The note is part of it, so a bowl with ไม่ใส่ถั่ว never
@@ -79,15 +135,34 @@ class OrderRepository @Inject constructor(
                 createdAt = now
             )
             val orderId = orders.insertOrder(order)
-            val rows = lines.map {
-                OrderLineEntity(
+            val rows = lines.flatMap { line ->
+                val dish = OrderLineEntity(
                     orderId = orderId,
-                    itemId = it.itemId,
-                    itemName = it.itemName,
-                    optionsSummary = it.optionsSummary,
-                    note = it.note,
-                    qty = it.qty,
-                    unitPrice = it.unitPrice
+                    itemId = line.itemId,
+                    itemName = line.itemName,
+                    optionsSummary = line.optionsSummary,
+                    note = line.note,
+                    qty = line.qty,
+                    unitPrice = line.unitPrice
+                )
+                // The deal is a row of its own, right after the dish it came off — see [Promo] for
+                // why it is not folded into the price. The dish line above is left saying exactly
+                // what was handed over, at the price on the menu.
+                if (line.discount <= 0) listOf(dish) else listOf(
+                    dish,
+                    OrderLineEntity(
+                        orderId = orderId,
+                        // No menu row behind it: 0 is what this app has always meant by "not from
+                        // the menu", and there is no foreign key to argue with.
+                        itemId = 0,
+                        itemName = Promo.lineName(line.itemName),
+                        optionsSummary = Promo.lineOptions(line.promoQty, line.promoPrice),
+                        note = "",
+                        // Per bundle, so qty × unitPrice is the whole saving and the row reads as
+                        // "two bundles were discounted".
+                        qty = line.bundles,
+                        unitPrice = -(line.discount / line.bundles)
+                    )
                 )
             }
             orders.insertLines(rows)

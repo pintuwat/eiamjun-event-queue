@@ -126,7 +126,15 @@ fun OrderScreen(
                         // How many of this dish are on the order. The question a badge answers is
                         // "did my tap land", so it counts every line of that dish whatever its
                         // options.
-                        badge = state.cart.filter { it.itemId == dish.item.id }.sumOf { it.qty }
+                        badge = state.cart.filter { it.itemId == dish.item.id }.sumOf { it.qty },
+                        promoNote = if (dish.item.hasPromo) {
+                            com.eiamjun.event.data.Promo.keyNote(
+                                dish.item.promoQty,
+                                dish.item.promoPrice
+                            )
+                        } else {
+                            null
+                        }
                     )
                 },
                 onKeyTap = { key ->
@@ -141,7 +149,9 @@ fun OrderScreen(
                                 optionsSummary = "",
                                 note = "",
                                 qty = 1,
-                                unitPrice = dish.item.price
+                                unitPrice = dish.item.price,
+                                promoQty = dish.item.promoQty,
+                                promoPrice = dish.item.promoPrice
                             )
                         )
                     } else {

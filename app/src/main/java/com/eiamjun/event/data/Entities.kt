@@ -22,8 +22,35 @@ data class MenuItemEntity(
     val price: Int,
     val sortOrder: Int = 0,
     /** Off the pad without being deleted — "ของหมด" during a service. */
-    val active: Boolean = true
-)
+    val active: Boolean = true,
+    /**
+     * "ซื้อ N ได้ราคาชุด" — [promoQty] of this dish for [promoPrice] instead of N times [price].
+     *
+     * Columns rather than code, so the stall can change the deal in แก้ไขเมนู on the morning of an
+     * event. Zero on both means no promotion, which is every dish on the menu but one.
+     */
+    val promoQty: Int = 0,
+    val promoPrice: Int = 0
+) {
+    val hasPromo: Boolean get() = promoQty > 1 && promoPrice > 0
+
+    /**
+     * What [qty] of this dish costs at [unitPrice], applying the deal to whole bundles and charging
+     * the remainder normally. 7 bottles at 39 with "3 for 100" is 100 + 100 + 39 = 239.
+     *
+     * **Never more than buying singly.** A bundle priced above the unit price — a typo, or a deal
+     * left behind after the unit price came down — would quietly overcharge every customer who hit
+     * it, and the till would be confidently wrong with nobody looking. Taking the lower of the two
+     * makes a mis-set promotion do nothing instead of harm. (Lifted from the shop's own till, which
+     * reached this the same way.)
+     */
+    fun priceFor(qty: Int, unitPrice: Int = price): Int {
+        val singly = qty * unitPrice
+        if (!hasPromo) return singly
+        val withBundles = (qty / promoQty) * promoPrice + (qty % promoQty) * unitPrice
+        return minOf(withBundles, singly)
+    }
+}
 
 /**
  * One question the order sheet asks about a dish.

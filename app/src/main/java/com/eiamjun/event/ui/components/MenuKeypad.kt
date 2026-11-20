@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.eiamjun.event.ui.theme.CreamDim
 import com.eiamjun.event.ui.theme.InkText
+import com.eiamjun.event.ui.theme.InkTextDim
 import com.eiamjun.event.ui.theme.PriceOrange
 
 /** One key on the pad. [badge] is how many of this dish are already on the order. */
@@ -32,7 +33,15 @@ data class PadKey(
     val id: Long,
     val label: String,
     val price: Int,
-    val badge: Int = 0
+    val badge: Int = 0,
+    /**
+     * The dish's bundle deal, under the price — "3 ชิ้น 100.-", or null for the usual case.
+     *
+     * On the key rather than only in the arithmetic, because the staff quote the deal out loud
+     * before the pad has had three taps: a price that drops after the third one and is nowhere on
+     * screen before it reads as the till having made a mistake.
+     */
+    val promoNote: String? = null
 )
 
 /**
@@ -86,6 +95,14 @@ fun MenuKeypad(
                             style = MaterialTheme.typography.titleMedium,
                             color = PriceOrange
                         )
+                        key.promoNote?.let { note ->
+                            Text(
+                                note,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = InkTextDim,
+                                textAlign = TextAlign.Center
+                            )
+                        }
                     }
                     if (key.badge > 0) {
                         Badge(

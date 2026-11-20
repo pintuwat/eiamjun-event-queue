@@ -27,7 +27,14 @@ object SeedData {
 
     data class SeedOption(val name: String, val priceDelta: Int = 0, val isDefault: Boolean = false)
 
-    data class SeedItem(val name: String, val price: Int, val groups: List<SeedGroup>)
+    data class SeedItem(
+        val name: String,
+        val price: Int,
+        val groups: List<SeedGroup>,
+        /** "ซื้อ N ได้ราคาชุด", or zeroes for the usual case of no deal. */
+        val promoQty: Int = 0,
+        val promoPrice: Int = 0
+    )
 
     val items: List<SeedItem> = listOf(
         // Two rows, not one dish with a เนื้อ/หมู question behind it. The pad is the whole
@@ -109,14 +116,30 @@ object SeedData {
         // and the size then reaches the ticket and the kitchen board as part of the dish's name,
         // in the large type, instead of on the small options line below it.
         SeedItem(name = "แคปป๊อป เล็ก", price = 39, groups = emptyList()),
-        SeedItem(name = "แคปป๊อป ใหญ่", price = 59, groups = emptyList())
+        SeedItem(name = "แคปป๊อป ใหญ่", price = 59, groups = emptyList()),
+        // Nothing to ask, so one tap — and the deal is applied by the pad rather than by a second
+        // key for "3 ขวด". A key per quantity is a key the staff can forget to use, and a customer
+        // who buys three and is charged 117 is the failure worth designing out.
+        SeedItem(
+            name = "น้ำซอสก๋วยเตี๋ยว",
+            price = 39,
+            groups = emptyList(),
+            promoQty = 3,
+            promoPrice = 100
+        )
     )
 
     suspend fun seed(dao: MenuDao) {
         if (dao.count() > 0) return
         items.forEachIndexed { itemIndex, item ->
             val itemId = dao.insertItem(
-                MenuItemEntity(name = item.name, price = item.price, sortOrder = itemIndex)
+                MenuItemEntity(
+                    name = item.name,
+                    price = item.price,
+                    sortOrder = itemIndex,
+                    promoQty = item.promoQty,
+                    promoPrice = item.promoPrice
+                )
             )
             item.groups.forEachIndexed { groupIndex, group ->
                 val groupId = dao.insertGroup(

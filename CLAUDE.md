@@ -12,9 +12,16 @@ is what it means.
 
 ## Status — read this first
 
-**Builds, 46 Android tests and 40 Node tests pass, and the whole loop has been driven on a real
+**Builds, 58 Android tests and 51 Node tests pass, and the whole loop has been driven on a real
 Sunmi V2 Pro** over USB: order → payment QR → queue ticket → kitchen board →
 พร้อมส่ง → back on the till, and the board's undo back the other way.
+
+⚠️ **The terminals are on `0.9.0-beefbowl`. `0.11.0-saucedeal` (versionCode 13) is written and
+tested but has never been built or installed**, and it carries two services' worth of change: the
+board's ส่งของแล้ว reaching the till (`applyPickedSet`, was 0.10.0) and น้ำซอสก๋วยเตี๋ยว with its
+3-for-100 (`MIGRATION_4_5`). Until it goes on, the kitchen's ส่งของแล้ว leaves the card on the
+till's own queue and there is no sauce key on the pad. The web half of both is already deployed
+and does no harm on its own.
 
 ✅ **Both printed documents are settled on paper.** The receipt joined the queue ticket on
 2026-11-18 — the shop's verdict on a sample of each at ขนาดเลขคิว −2 was "อ่านได้ดี", which
@@ -350,8 +357,61 @@ only if the kitchen's slip and the customer's card genuinely want different size
 
 ## The menu
 
-Four keys: **ก๋วยเตี๋ยวคลุกหมู / ก๋วยเตี๋ยวคลุกเนื้อ** at 50, and **แคปป๊อป เล็ก 39 /
-แคปป๊อป ใหญ่ 59**. Either bowl asks three questions — เส้น, เพิ่มเติม (แคปป๊อปถัง +39), หมายเหตุ.
+Five keys: **ก๋วยเตี๋ยวคลุกหมู / ก๋วยเตี๋ยวคลุกเนื้อ** at 50, **แคปป๊อป เล็ก 39 /
+แคปป๊อป ใหญ่ 59**, and **น้ำซอสก๋วยเตี๋ยว 39, สามขวด 100**. Either bowl asks three questions —
+เส้น, เพิ่มเติม (แคปป๊อปถัง +39), หมายเหตุ; the other three ask nothing.
+
+### A bundle price, and where the saving is written down
+
+**น้ำซอสก๋วยเตี๋ยว is 39 a bottle and 3 for 100** (`MIGRATION_4_5`, 0.11.0). The deal is applied
+by the pad, not by a second key reading "3 ขวด": a key per quantity is a key the staff can forget
+to reach for, and a customer who buys three and is charged 117 is the failure worth designing
+out. The key says `3 ชิ้น 100.-` under its price, because the deal is quoted out loud before the
+pad has had three taps — a price that drops at the third one and is nowhere on screen before it
+reads as the till having made a mistake.
+
+**`promoQty` / `promoPrice` are columns, not code.** The stall changes what it is offering on the
+morning of an event, and ตั้งค่า → แก้ไขเมนู now moves both, with a sentence under them saying
+what they do. Zero on either turns the deal off. `MenuItemEntity.priceFor` is the arithmetic:
+whole bundles at the bundle price, the remainder at the ordinary one, so 7 bottles is 100 + 100 +
+39 = 239.
+
+⚠️ **A bundle dearer than buying singly does nothing, deliberately** — `priceFor` takes the lower
+of the two. A typo, or a deal left behind after the unit price came down, would otherwise
+overcharge every customer who hit it, and the till would be confidently wrong with nobody looking.
+The editor accepts it and warns rather than refusing it: a dialog in the middle of a service is
+worse than a deal that quietly declines to apply.
+
+**The saving reaches the books as a line of its own, never as an averaged price** (`Promo`). 3
+for 100 cannot be written as an integer price per bottle, so something has to give, and the only
+question is which figure is allowed to be wrong:
+
+| Written as | What goes wrong |
+|---|---|
+| A bundle line — qty 1 at 100, which is how the shop's own till does it | `order_lines.qty` becomes bundles, so รายงาน's ขายดี counts **1 where 3 bottles were sold**. The shop's server needs a whole table of roll-up rules (`ROLL_UPS`) to undo that, every one of them keyed on a **name** |
+| The dish at its own price, plus one discount line | Nothing. The bottles are 3 bottles, the money reconciles, and no figure anywhere is read off a name |
+
+So the dish line is untouched — qty in bottles, at the price on the menu — and the saving is a
+second line carrying a **negative unit price**, named per dish (`ส่วนลด น้ำซอสก๋วยเตี๋ยว`) so two
+deals can never merge into one row nobody can take apart. `qty × unitPrice` stays true on every
+row, which the receipt, the server's `recordOrder` and every report on `/sales` are all built on.
+The cost is one row in ขายดี named for a discount rather than for food, and it is drawn without a
+seller's green bar (`.item.credit`) — a green bar over "-34 บาท" is the one row on that page
+somebody could read backwards.
+
+**The slip prints it; the kitchen board hides it.** The printed receipt is both the customer's
+bill and the kitchen's paper slip, and the customer has to see the deal they were given — the
+รวม is the sum of every line, discount included, so the printed total needs no second
+calculation. The iPad board is only ever about food to cook, so it skips a line whose unit price
+is negative. That asymmetry is the rule each document already follows: it carries the words its
+reader acts on.
+
+⚠️ **The deal travels only while no option has moved the price.** It is the dish's own, priced
+against the menu's figure, so `OrderLineSheet` passes it through only when the chosen options add
+up to zero. Every dish with a deal has nothing to ask, so this never fires today — and the day
+one does, it fails by charging the ordinary price rather than by selling the dearer thing at the
+bundle rate. `MenuPromoTest` pins the arithmetic and `db.test.js` pins that the money and the
+bottle count both survive the round trip to the server.
 
 **The two bowls are two menu rows, not one dish with a เนื้อ/หมู question behind it** (0.9.0).
 The pad is the whole ordering interface and a key is one tap; the meat is also the first thing

@@ -128,7 +128,8 @@ function drawItems() {
   const top = Math.max(...items.map((i) => i.qty));
   for (const item of items) {
     const row = document.createElement('div');
-    row.className = 'item';
+    // Negative takings is a discount line, not food — see `.item.credit` in the stylesheet.
+    row.className = item.takings < 0 ? 'item credit' : 'item';
 
     const head = document.createElement('div');
     head.className = 'item-head';

@@ -311,4 +311,43 @@ class EventTicketFormatterTest {
         val thanks = ticket.lines.filterIsInstance<TicketLine.Text>().first { it.center }
         assertEquals(0, thanks.dots)
     }
+    /**
+     * A promotion reaches the paper as its own line, and the รวม already adds up.
+     *
+     * The receipt totals `unitPrice × qty` across every line, so the discount row is what makes
+     * the printed total the bundle price — no second arithmetic, and nothing to keep in step with
+     * the pad. The customer also gets to see the deal they were given, which is why this one is
+     * **not** hidden the way the kitchen board hides it: the board is about food to cook, the slip
+     * is what the customer is handed.
+     */
+    @Test
+    fun `a promotion prints as its own line and the total is the bundle price`() {
+        val sauce = OrderLineEntity(
+            orderId = 1,
+            itemName = "น้ำซอสก๋วยเตี๋ยว",
+            qty = 3,
+            unitPrice = 39
+        )
+        val saving = OrderLineEntity(
+            orderId = 1,
+            itemName = "ส่วนลด น้ำซอสก๋วยเตี๋ยว",
+            optionsSummary = "โปรฯ 3 ชิ้น 100.-",
+            qty = 1,
+            unitPrice = -17
+        )
+        val text = render(
+            EventTicketFormatter.receipt(
+                shopName = "เอี้ยมจุ๊น",
+                queueNo = 5,
+                lines = listOf(sauce, saving)
+            )
+        )
+        assertTrue(text, text.contains("น้ำซอสก๋วยเตี๋ยว"))
+        assertTrue(text, text.contains("117.-"))
+        assertTrue(text, text.contains("ส่วนลด น้ำซอสก๋วยเตี๋ยว"))
+        assertTrue(text, text.contains("-17.-"))
+        assertTrue(text, text.contains("โปรฯ 3 ชิ้น 100.-"))
+        assertTrue(text, text.contains("100.-"))
+    }
+
 }

@@ -39,6 +39,29 @@ class MenuEditViewModel @Inject constructor(private val dao: MenuDao) : ViewMode
         viewModelScope.launch { dao.updateItem(item.copy(price = price.coerceAtLeast(0))) }
     }
 
+    /**
+     * The dish's bundle deal — "ซื้อ N ได้ราคาชุด".
+     *
+     * Editable here for the same reason the price is: the stall changes what it is offering on the
+     * morning of an event, and a build is not available then. A qty of 0 or 1, or a price of 0,
+     * turns it off, which is how a deal is withdrawn.
+     *
+     * A deal priced **above** buying singly is not rejected here — it is accepted and then ignored
+     * when the money is counted ([MenuItemEntity.priceFor] takes the lower of the two). Refusing
+     * it would mean a dialog in the middle of a service; ignoring it means a typo costs nobody
+     * anything, and the pad's own note shows what was actually typed.
+     */
+    fun setPromo(item: MenuItemEntity, qty: Int, price: Int) {
+        viewModelScope.launch {
+            dao.updateItem(
+                item.copy(
+                    promoQty = qty.coerceAtLeast(0),
+                    promoPrice = price.coerceAtLeast(0)
+                )
+            )
+        }
+    }
+
     /** Off the pad without being deleted — "ของหมด" mid-service, back with one tap. */
     fun setActive(item: MenuItemEntity, active: Boolean) {
         viewModelScope.launch { dao.setActive(item.id, active) }

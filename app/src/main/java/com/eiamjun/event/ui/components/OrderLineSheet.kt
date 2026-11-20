@@ -83,6 +83,24 @@ fun OrderLineSheet(
         g.options.sortedBy { it.sortOrder }.filter { it.id in ids }
     }
     val unitPrice = dish.item.price + picked.sumOf { it.priceDelta }
+    // The deal is the dish's own and is priced against the menu's figure, so it travels only while
+    // no option has moved that figure — see [CartLine.promoQty]. Every dish that has a deal today
+    // has nothing to ask, so this never fires; the day one does, it falls back to the plain price
+    // rather than selling the dearer thing at the bundle rate.
+    val promoApplies = dish.item.hasPromo && unitPrice == dish.item.price
+
+    // Built once and used for both the button's figure and what is handed back, so the price read
+    // out to the customer and the price charged cannot be two different calculations.
+    val line = CartLine(
+        itemId = dish.item.id,
+        itemName = dish.item.name,
+        optionsSummary = picked.joinToString(OptionJoin.SEPARATOR) { it.name },
+        note = note.trim(),
+        qty = qty,
+        unitPrice = unitPrice,
+        promoQty = if (promoApplies) dish.item.promoQty else 0,
+        promoPrice = if (promoApplies) dish.item.promoPrice else 0
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -178,20 +196,11 @@ fun OrderLineSheet(
         },
         confirmButton = {
             Button(
-                onClick = {
-                    onConfirm(
-                        CartLine(
-                            itemId = dish.item.id,
-                            itemName = dish.item.name,
-                            optionsSummary = picked.joinToString(OptionJoin.SEPARATOR) { it.name },
-                            note = note.trim(),
-                            qty = qty,
-                            unitPrice = unitPrice
-                        )
-                    )
-                },
+                onClick = { onConfirm(line) },
                 modifier = Modifier.heightIn(min = 56.dp)
-            ) { Text("เพิ่ม · ${unitPrice * qty}.-", fontSize = 20.sp) }
+                // The deal's price, not the arithmetic the staff would do: this button is what gets
+                // read back to the customer, so it has to be the figure the bill will say.
+            ) { Text("เพิ่ม · ${line.total}.-", fontSize = 20.sp) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("ยกเลิก") } }
     )

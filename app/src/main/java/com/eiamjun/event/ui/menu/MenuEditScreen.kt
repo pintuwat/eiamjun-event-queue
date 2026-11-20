@@ -116,12 +116,51 @@ private fun DishCard(dish: MenuItemWithOptions, viewModel: MenuEditViewModel) {
                 value = dish.item.price,
                 onCommit = { viewModel.reprice(dish.item, it) }
             )
+            PromoRow(dish, viewModel)
             dish.groups.sortedBy { it.group.sortOrder }.forEach { group ->
                 Divider(Modifier.padding(top = 6.dp))
                 GroupBlock(group, viewModel)
             }
         }
     }
+}
+
+/**
+ * "ซื้อ N ชิ้น ราคา X" — the dish's bundle deal, and a line saying what it does.
+ *
+ * The sentence underneath is the whole point of the row. A pair of numbers does not say whether
+ * the remainder is charged normally, nor what happens when the bundle is dearer than buying
+ * singly, and both are answers somebody typing a price at 07:00 needs without reading code.
+ */
+@Composable
+private fun PromoRow(dish: MenuItemWithOptions, viewModel: MenuEditViewModel) {
+    val item = dish.item
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f)) {
+            EditableNumber(
+                label = "โปรฯ ซื้อกี่ชิ้น",
+                value = item.promoQty,
+                onCommit = { viewModel.setPromo(item, it, item.promoPrice) }
+            )
+        }
+        Column(Modifier.weight(1f).padding(start = 8.dp)) {
+            EditableNumber(
+                label = "ราคาชุด",
+                value = item.promoPrice,
+                onCommit = { viewModel.setPromo(item, item.promoQty, it) }
+            )
+        }
+    }
+    Text(promoNote(item.price, item.promoQty, item.promoPrice), color = InkTextDim)
+}
+
+private fun promoNote(price: Int, promoQty: Int, promoPrice: Int): String = when {
+    promoQty <= 1 || promoPrice <= 0 -> "ไม่มีโปรฯ — คิดราคาเต็มทุกชิ้น"
+    promoPrice >= promoQty * price ->
+        "⚠ ชุดนี้แพงกว่าซื้อแยก ($promoQty x $price = ${promoQty * price}.-) จะไม่ถูกใช้"
+    else ->
+        "ซื้อ $promoQty ชิ้น คิด $promoPrice.- " +
+            "(ถูกลง ${promoQty * price - promoPrice}.-) เศษคิดชิ้นละ $price.-"
 }
 
 @Composable

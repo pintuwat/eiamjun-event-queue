@@ -132,6 +132,11 @@ function card(order, isReady) {
   const lines = document.createElement('div');
   lines.className = 'lines';
   for (const line of order.lines) {
+    // A negative unit price is a discount, not food — the till writes a promotion as a line of
+    // its own so the money and the count both stay true in the books (see `Promo` on the
+    // terminal). Nothing on this board is about money, and "ส่วนลด น้ำซอส" on a card is a line
+    // the kitchen reads past on the way to what it has to pack.
+    if (Number(line.unitPrice) < 0) continue;
     const row = document.createElement('div');
     row.className = 'line';
     const qty = document.createElement('span');

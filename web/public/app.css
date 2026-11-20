@@ -400,6 +400,12 @@ body {
 }
 
 .meter-fill { background: var(--basil); height: 100%; border-radius: 999px; }
+/* A promotion's saving is a row here too — the till writes it as its own line so the money and
+   the count both stay true (see the terminal's `Promo`). It is not a seller, so it does not get
+   a seller's green bar: the figure is money going out, and a green bar over "-34 บาท" is the
+   one row on this page somebody could read backwards. */
+.item.credit .meter-fill { background: var(--ink-dim); opacity: 0.35; }
+.item.credit .item-money { color: var(--alert); }
 
 .hours { display: flex; flex-direction: column; gap: 8px; }
 

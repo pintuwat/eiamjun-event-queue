@@ -341,3 +341,58 @@ test('cancelling and collecting are scoped to their round too', () => {
   assert.equal(totals.takings, 110);
   assert.equal(db.openOrders(DAY).length, 0, 'and neither is still owed to anybody');
 });
+
+test('a promotion keeps the money and the bottle count both true', () => {
+  const db = tempDb();
+  // Three bottles at 39 with "3 for 100": the dish stays at its own price and the saving arrives
+  // as a line of its own. That is the whole reason this shape was chosen over a bundle line —
+  // `qty` stays in bottles, so the report cannot report 1 where 3 were sold.
+  db.recordOrder(
+    order(1, {
+      total: 100,
+      lines: [
+        { name: 'น้ำซอสก๋วยเตี๋ยว', options: '', note: '', qty: 3, unitPrice: 39 },
+        { name: 'ส่วนลด น้ำซอสก๋วยเตี๋ยว', options: 'โปรฯ 3 ชิ้น 100.-', note: '', qty: 1, unitPrice: -17 }
+      ]
+    })
+  );
+
+  const totals = db.dayTotals(DAY);
+  assert.equal(totals.takings, 100, 'the day reads the bundle price, not 117');
+
+  const bottles = totals.items.find((i) => i.name === 'น้ำซอสก๋วยเตี๋ยว');
+  assert.equal(bottles.qty, 3, 'three bottles were sold and the report has to say three');
+  assert.equal(bottles.takings, 117, 'the dish row is the dish at its own price');
+
+  const saving = totals.items.find((i) => i.name === 'ส่วนลด น้ำซอสก๋วยเตี๋ยว');
+  assert.equal(saving.takings, -17);
+  // The two rows reconcile to the headline, which is what makes the split honest rather than a
+  // figure that disagrees with itself on the same screen.
+  assert.equal(
+    totals.items.reduce((sum, i) => sum + i.takings, 0),
+    totals.takings
+  );
+});
+
+test('a promotion over several bundles discounts each one', () => {
+  const db = tempDb();
+  // Seven bottles: two bundles at 100 and one at 39 — 239, with the saving carried per bundle so
+  // the row reads as "two bundles were discounted".
+  db.recordOrder(
+    order(1, {
+      total: 239,
+      lines: [
+        { name: 'น้ำซอสก๋วยเตี๋ยว', options: '', note: '', qty: 7, unitPrice: 39 },
+        { name: 'ส่วนลด น้ำซอสก๋วยเตี๋ยว', options: 'โปรฯ 3 ชิ้น 100.-', note: '', qty: 2, unitPrice: -17 }
+      ]
+    })
+  );
+
+  const totals = db.dayTotals(DAY);
+  assert.equal(totals.takings, 239);
+  assert.equal(totals.items.find((i) => i.name === 'น้ำซอสก๋วยเตี๋ยว').qty, 7);
+  assert.equal(
+    totals.items.reduce((sum, i) => sum + i.takings, 0),
+    239
+  );
+});

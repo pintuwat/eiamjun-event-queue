@@ -158,5 +158,41 @@ object Migrations {
         }
     }
 
-    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
+    /**
+     * Gives a dish a bundle price, and puts the stall's น้ำซอส on the pad with one.
+     *
+     * The columns are additive and default to 0, which is "no deal" — every dish already on the
+     * terminal keeps the price it has. See [MenuItemEntity.priceFor] for the arithmetic and
+     * [Promo] for why the saving reaches the books as a line of its own.
+     *
+     * The dish arrives here rather than in [SeedData] because the seed only runs on a database
+     * that does not exist yet, and both terminals have been selling for weeks. แก้ไขเมนู cannot
+     * create a dish either — it changes names, prices and what is on sale — so a new row on the
+     * pad is a migration, exactly as แคปป๊อป ใหญ่ and ก๋วยเตี๋ยวคลุกเนื้อ were.
+     *
+     * **Every column is named, not only the ones this build cares about.** The shop's own till was
+     * taken down twice by an INSERT that left a column with no default to a terminal whose table
+     * had been created at a different version — two terminals of the same age are not the same
+     * schema. `NOT EXISTS` on the name so a re-run cannot double the key, and last on the pad so
+     * nothing the staff already reach for moves under their finger.
+     *
+     * Nothing to ask, so it gets no option groups: the key goes straight into the basket, the way
+     * แคปป๊อป does.
+     */
+    val MIGRATION_4_5 = object : Migration(4, 5) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE menu_items ADD COLUMN promoQty INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE menu_items ADD COLUMN promoPrice INTEGER NOT NULL DEFAULT 0")
+            db.execSQL(
+                "INSERT INTO menu_items " +
+                    "(name, price, sortOrder, active, promoQty, promoPrice) " +
+                    "SELECT 'น้ำซอสก๋วยเตี๋ยว', 39, " +
+                    "COALESCE((SELECT MAX(sortOrder) FROM menu_items), 0) + 1, 1, 3, 100 " +
+                    "WHERE NOT EXISTS " +
+                    "(SELECT 1 FROM menu_items WHERE name = 'น้ำซอสก๋วยเตี๋ยว')"
+            )
+        }
+    }
+
+    val ALL = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
 }
