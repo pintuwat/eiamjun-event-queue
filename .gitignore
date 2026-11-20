@@ -8,3 +8,6 @@ keystore.properties
 # The event's own takings, not code.
 web/data/
 node_modules/
+
+# The stall's own orders pulled off a terminal, not code.
+backup/

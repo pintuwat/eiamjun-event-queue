@@ -16,12 +16,24 @@ is what it means.
 Sunmi V2 Pro** over USB: order → payment QR → queue ticket → kitchen board →
 พร้อมส่ง → back on the till, and the board's undo back the other way.
 
-⚠️ **The terminals are on `0.9.0-beefbowl`. `0.11.0-saucedeal` (versionCode 13) is written and
-tested but has never been built or installed**, and it carries two services' worth of change: the
-board's ส่งของแล้ว reaching the till (`applyPickedSet`, was 0.10.0) and น้ำซอสก๋วยเตี๋ยว with its
-3-for-100 (`MIGRATION_4_5`). Until it goes on, the kitchen's ส่งของแล้ว leaves the card on the
-till's own queue and there is no sauce key on the pad. The web half of both is already deployed
-and does no harm on its own.
+✅ **`0.11.0-saucedeal` (versionCode 13) is on the terminal** — `V23220AH02338`, 2026-11-20
+21:53, over USB, carrying two services' worth of change at once: the board's ส่งของแล้ว reaching
+the till (`applyPickedSet`) and น้ำซอสก๋วยเตี๋ยว with its 3-for-100 (`MIGRATION_4_5`).
+
+`MIGRATION_4_5` ran clean on the shop's own database: `user_version` 5, the sauce row at
+`sortOrder` 4 with 3/100, **86 orders and 103 lines untouched**, `integrity_check` ok. Three
+taps on the pad came to **100.-** on the real screen and the cart was cleared again — nothing was
+charged, nothing recorded, and the outbox was empty before and after.
+
+The full backup taken first (all three SQLite files **and** both `shared_prefs`) is in
+`backup/2026-11-20-before-0.11.0/`, gitignored because it is the stall's own takings. The `-wal`
+was 432 KB against an 81 KB `.db` — **pulling the `.db` alone would have lost the day.**
+
+⚠️ **`menu_items` on the device is not what `SeedData` says, and that is the shop's doing.**
+`MIGRATION_3_4` renamed the bowl to ก๋วยเตี๋ยวคลุกหมู and cloned เนื้อ off it; the stall then
+renamed หมู back to plain **ก๋วยเตี๋ยวคลุก** in แก้ไขเมนู and set **เนื้อ to ปิดขาย**. The
+terminal is the system of record, so that stands — but any migration matching on those names from
+here will match nothing, which is exactly why `MIGRATION_4_5` matches on its own new name only.
 
 ✅ **Both printed documents are settled on paper.** The receipt joined the queue ticket on
 2026-11-18 — the shop's verdict on a sample of each at ขนาดเลขคิว −2 was "อ่านได้ดี", which
