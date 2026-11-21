@@ -90,13 +90,27 @@ function play() {
   // timer running, so the next one can succeed once somebody has tapped.
   nextAt = Date.now() + minutes * 60_000;
 
-  // Already singing. The file is 36 seconds and the shortest interval is 60, so this cannot
-  // happen today — but the mp3 is replaceable without touching this file, and two copies of a
-  // jingle over each other is the kind of thing nobody debugs calmly during a service.
-  if (!el.audio.paused && !el.audio.ended) return;
+  // Already singing — two copies of a jingle over each other is the thing nobody debugs calmly
+  // during a service.
+  //
+  // ⚠️ It **retries in a second rather than skipping to the next interval**, and the stall's own
+  // song is why: at 61 seconds it is longer than the shortest setting, so a skip would make
+  // "ทุก 1 นาที" play every two minutes while the button went on saying one. Retrying means the
+  // next one starts the moment this one ends, which is what that setting is asking for.
+  if (!el.audio.paused && !el.audio.ended) {
+    nextAt = Date.now() + 1000;
+    return;
+  }
 
   el.audio.volume = 1; // The loudest a web page may be. The rest is the device's own volume.
-  el.audio.currentTime = 0;
+  // Rewinding throws on a stream the browser cannot seek. It should never be one — the server
+  // answers byte ranges precisely so that it is not — but a jingle that stops because a seek
+  // threw would be a silent board, and `play()` on a finished element starts it over anyway.
+  try {
+    el.audio.currentTime = 0;
+  } catch {
+    /* not seekable; play() restarts a finished element on its own */
+  }
   const started = el.audio.play();
   if (started && typeof started.catch === 'function') {
     started.catch(() => {

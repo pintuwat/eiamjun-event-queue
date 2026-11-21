@@ -657,6 +657,24 @@ control follows from it:
   well be refused, and the label then says **แตะปุ่มอีกครั้ง** rather than counting down against
   silence.
 
+**The stall's song is 61 seconds — longer than the shortest interval — so a play that falls due
+while one is still going retries in a second rather than skipping to the next one.** Skipping
+would make "ทุก 1 นาที" play every two minutes while the button went on saying one; retrying
+starts the next the moment this one ends, which is what that setting is asking for. At 3 and 5
+นาที nothing of this is visible.
+
+⚠️ **Media needs byte ranges, and the server did not answer them** — `serveStatic` sent every
+file whole with a 200. The browser answers an un-seekable stream by reporting `duration` as
+**Infinity**, which is what the stall's mp3 came back as, and a track it cannot seek is a track it
+cannot reliably restart. **iOS is stricter than the pane this was found in and may refuse to play
+such a file at all**, which would have been a board that worked on the laptop and was silent on
+the iPad. `serveStatic` now sends `accept-ranges` and answers a range with a 206. Nothing else on
+this page is big enough for a browser to ever ask.
+
+It also carries an **ETag**, so a reload revalidates and gets a bare 304 instead of 1.4 MB. One
+file is the whole reason: `cache-control: no-cache` is deliberate here (a deploy must take effect
+at once) and no-cache means *revalidate*, not *re-download*.
+
 **`volume = 1` is as loud as a web page may be** — the rest is the iPad's own volume and its side
 switch. There is no way to go louder without the Web Audio API, which brings its own unlock rules
 and is not worth it for a jingle.
@@ -688,7 +706,10 @@ buttons drop below the label again. Verified at 375 / 768 / 1024: bar 58px on on
 
 **Checked by driving the real page on a throwaway server**, like the board's other browser-only
 rules — there is no node test for any of this. 1 นาที was set and left alone: the song played,
-ended at 36s, the label counted down to 0:09, and at the minute it started again on its own.
+ended at 61s and started again a second later rather than waiting out a second minute, and the
+label counted down between plays on the earlier, shorter file. The server's half *is* checked by
+hand with curl: 200 with `accept-ranges`, 206 for a range, 304 for a matching ETag, 416 for a
+range past the end.
 
 ### รายงานยอดขาย (`/sales`) — the day's money, live
 

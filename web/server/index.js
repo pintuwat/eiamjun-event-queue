@@ -438,9 +438,48 @@ async function serveStatic(req, res) {
   }
   try {
     const data = await fs.readFile(file);
+    const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+    // Enough to tell one build of a file from the next, which is all a revalidation needs.
+    const tag = `W/"${data.length}-${crypto.createHash('sha1').update(data).digest('hex').slice(0, 16)}"`;
+
+    // `no-cache` means revalidate, not "never store" — so an unchanged file comes back as a bare
+    // 304. Worth having for exactly one file: เพลงร้าน is 1.4 MB, the board is reloaded now and
+    // then, and this server is on a VPS rather than on the stall's own wifi.
+    if (req.headers['if-none-match'] === tag) {
+      res.writeHead(304, { etag: tag, 'cache-control': 'no-cache' });
+      return res.end();
+    }
+
+    // ⚠️ **Media needs byte ranges, and Safari needs them most.** Without `accept-ranges` the
+    // browser cannot seek, which it answers by reporting `duration` as Infinity — measured here
+    // on the stall's own mp3, where it then could not be restarted from the beginning. iOS is
+    // stricter still and may refuse to play the file at all. Everything else on this page is
+    // small enough that a range request never arrives for it.
+    const range = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
+    if (range && data.length > 0) {
+      const start = range[1] ? Number(range[1]) : 0;
+      const end = range[2] ? Math.min(Number(range[2]), data.length - 1) : data.length - 1;
+      if (start > end || start >= data.length) {
+        res.writeHead(416, { 'content-range': `bytes */${data.length}` });
+        return res.end();
+      }
+      res.writeHead(206, {
+        'content-type': type,
+        'content-range': `bytes ${start}-${end}/${data.length}`,
+        'content-length': end - start + 1,
+        'accept-ranges': 'bytes',
+        'cache-control': 'no-cache',
+        etag: tag
+      });
+      return res.end(req.method === 'HEAD' ? undefined : data.subarray(start, end + 1));
+    }
+
     res.writeHead(200, {
-      'content-type': MIME[path.extname(file).toLowerCase()] || 'application/octet-stream',
-      'cache-control': 'no-cache'
+      'content-type': type,
+      'content-length': data.length,
+      'accept-ranges': 'bytes',
+      'cache-control': 'no-cache',
+      etag: tag
     });
     res.end(req.method === 'HEAD' ? undefined : data);
   } catch {
