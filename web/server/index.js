@@ -67,7 +67,10 @@ const MIME = {
   '.json': 'application/json; charset=utf-8',
   '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
-  '.svg': 'image/svg+xml'
+  '.svg': 'image/svg+xml',
+  // เพลงร้าน. Behind auth like the rest of the page: nothing fetches it but the board,
+  // and the board already has a session.
+  '.mp3': 'audio/mpeg'
 };
 
 export const server = http.createServer(async (req, res) => {

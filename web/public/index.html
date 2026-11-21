@@ -19,6 +19,14 @@
       <h1>ครัว</h1>
       <span id="day" class="muted"></span>
     </div>
+    <!-- เพลงร้าน. Its own group in the bar rather than a strip of its own: vertical space on this
+         board belongs to the cards. The bar wraps on a phone so the four buttons drop to a line
+         of their own instead of squashing the date and the link state. -->
+    <div class="jingle">
+      <span id="jingle-label" class="jingle-label"></span>
+      <div id="jingle-opts" class="jingle-opts" role="group" aria-label="เพลงร้าน"></div>
+    </div>
+
     <div class="bar-right">
       <span id="counts" class="counts"></span>
       <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
@@ -36,6 +44,13 @@
     </section>
   </main>
 
+  <!-- `preload="auto"` so the first play is not a download: 843 KB over a stall's wifi is the
+       difference between a jingle and a jingle four seconds late. -->
+  <audio id="jingle-audio" src="/jingle.mp3" preload="auto"></audio>
+
   <script type="module" src="/app.js"></script>
+  <!-- A script of its own, not an import of app.js: the board has to keep drawing orders even if
+       the music throws. -->
+  <script type="module" src="/jingle.js"></script>
 </body>
 </html>

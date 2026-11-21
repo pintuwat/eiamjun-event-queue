@@ -47,6 +47,11 @@ body {
   align-items: center;
   justify-content: space-between;
   flex: 0 0 auto;
+  /* Three groups now, and on a phone they do not fit one line. Wrapping drops เพลงร้าน onto its
+     own row rather than squeezing the date and the link state into syllables. */
+  flex-wrap: wrap;
+  row-gap: 8px;
+  column-gap: 16px;
 }
 
 .bar h1 {
@@ -73,6 +78,83 @@ body {
    "the kitchen has nothing to cook" if it is only a dot. */
 .link-state.down { background: var(--alert); color: #fff; }
 .link-state.up { background: #2f4a2e; color: #d6e8d4; }
+
+/*
+ * ---- เพลงร้าน ----
+ *
+ * ปิด / 1 / 3 / 5 as one row of four, because off and the interval are one setting (see
+ * jingle.js). The label beside it is the only thing on this board that counts down — which is
+ * exactly what it is for: a jingle that has quietly stopped looks identical to one that is off,
+ * so the control says both the state and when the next one is due.
+ */
+.jingle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.jingle-label {
+  font-size: 17px;
+  color: #c7b393;
+  /* Compose and the browser both break Thai with a dictionary; "เพลงร้าน · อีก 4:12" falling in
+     half reads as a rendering fault. It is allowed to run to the edge, not to split. */
+  white-space: nowrap;
+}
+
+/* Said in words and in colour: a refused autoplay is the one state here that needs doing
+   something about. */
+.jingle-label.needs-tap { color: #f0b3a8; }
+
+.jingle-opts {
+  display: flex;
+  gap: 6px;
+}
+
+.jingle-opts button {
+  font: inherit;
+  /* "1 น." fell in half inside its own button at 375px. A two-character label has nowhere safe
+     to break. */
+  white-space: nowrap;
+  font-size: 18px;
+  min-height: 38px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #6b4c37;
+  background: #4a3327;
+  color: var(--gold);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* The chosen one is filled in the same gold the bar's title carries — one loud colour on this
+   bar, not a second one invented for a setting. */
+.jingle-opts button.on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--wood);
+  font-weight: 700;
+}
+
+/*
+ * An iPad in portrait is 768–834 wide and the bar's three groups measure about 850, so the
+ * control takes a row of its own there rather than being squeezed against the date. Its own
+ * breakpoint, deliberately wider than the board's 760: this is about the bar's contents, and
+ * tying it to the layout query would mean one number answering two questions.
+ */
+@media (max-width: 900px) {
+  .jingle {
+    width: 100%;
+    justify-content: space-between;
+    /* On a phone even its own row is not enough — measured at 375 the label and four buttons
+       came to 401 and the last one ran off the edge — so the buttons drop below the label. */
+    flex-wrap: wrap;
+    row-gap: 8px;
+    /* Last, so the wrap costs the bar one extra row and not two: left and right keep the first
+       line between them, and เพลงร้าน takes the second. Drawn out of DOM order rather than moved,
+       because on a wide screen it belongs between them. */
+    order: 3;
+  }
+}
 
 .board {
   flex: 1 1 auto;
@@ -265,6 +347,7 @@ body {
   }
 
   .column { min-height: auto; }
+
 
   .cards {
     overflow-y: visible;

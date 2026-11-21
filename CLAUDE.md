@@ -633,6 +633,63 @@ and `.column` at equal specificity, so source order is the whole of what makes i
 before them (where it was first written) a phone got two stacked internal scrollers with about a
 card and a half each, and the board looked like it held two orders when it held eight.
 
+### เพลงร้าน — a jingle on a timer
+
+The board plays the stall's own jingle over the iPad's speaker on a repeat, set from the bar:
+**ปิด / 1 / 3 / 5 นาที**. Asked for as "เพลงดังๆ ทุก 5 นาที" with the interval adjustable, and it
+lives on the kitchen board because that is the screen that stays open all day with a speaker in
+it. `public/jingle.js` + `public/jingle.mp3`.
+
+**Off and the interval are one setting, not two.** A switch plus an interval can hold "on, with
+no interval", which is a state nobody could read off the screen and which the two halves would
+then have to agree about. ปิด is simply the fourth choice, so the control always says both what
+will happen and when.
+
+⚠️ **A browser plays no sound until somebody has tapped the page**, and everything about this
+control follows from it:
+
+- **Every tap plays the song at once**, the already-chosen interval included. The tap is both the
+  setting and the browser's permission, and hearing it is how the person who set it knows it
+  works — nobody should have to wait five minutes to find out.
+- **One `<audio>` element, reused for the life of the page.** The permission a gesture grants
+  belongs to that element, so a `new Audio()` per play would be refused from the second play on.
+- **A reload restores the interval and arms the timer but plays nothing.** The first due play may
+  well be refused, and the label then says **แตะปุ่มอีกครั้ง** rather than counting down against
+  silence.
+
+**`volume = 1` is as loud as a web page may be** — the rest is the iPad's own volume and its side
+switch. There is no way to go louder without the Web Audio API, which brings its own unlock rules
+and is not worth it for a jingle.
+
+**The label is the only thing on this board that counts down**, and that is what it is for: a
+jingle that has quietly stopped looks exactly like one that is off. ปิด / อีก 4:12 / กำลังเล่น /
+ไม่พบไฟล์เพลง, the last two in the alert colour — the same reasoning that puts the board's link
+state in words instead of a dot.
+
+⚠️ **The broken-file state is asked of the element, never remembered from its `error` event.**
+`preload="auto"` starts the download while the page is still parsing and every ES module is
+deferred, so a 404 has fired and gone before a listener can exist. Written with a listener first,
+it behaved exactly as you would fear: the mp3 was deleted and the board ran a happy countdown
+against silence. `noFile()` reads `audio.error` and `networkState` instead.
+
+**A due-time, not a `setInterval` counting down.** A browser throttles timers in a tab that is
+not in front and this board does sit unattended, so an interval would make up a missed hour in a
+burst. A timestamp is caught up with exactly once however long the page was asleep.
+
+**Its own `<script>`, not an import of `app.js`.** The kitchen cannot work without the board and
+can work without music; the two must not be able to take each other down.
+
+**The control takes a row of its own below 900px** — its own breakpoint, deliberately wider than
+the board's 760, because this is about what fits in the bar rather than about the layout. Measured
+in the pane: at an iPad's 768 the bar's three groups come to about 850, so the date and เพลงร้าน
+were drawn touching. It is `order: 3` there so the wrap costs one row and not two, and at 375 the
+buttons drop below the label again. Verified at 375 / 768 / 1024: bar 58px on one row at 1024,
+102px on two at 768, nothing overflowing at any of them.
+
+**Checked by driving the real page on a throwaway server**, like the board's other browser-only
+rules — there is no node test for any of this. 1 นาที was set and left alone: the song played,
+ended at 36s, the label counted down to 0:09, and at the minute it started again on its own.
+
 ### รายงานยอดขาย (`/sales`) — the day's money, live
 
 A second page on the same server, added 0.11.0 at the owner's request. It is **read-only and owns
