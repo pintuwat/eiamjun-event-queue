@@ -11,12 +11,14 @@
   <title>สรุปยอดขายตามช่วงเวลา เอี้ยมจุ๊น</title>
 </head>
 <body class="report-page">
-  <!-- The same bar as /sales: one word and the link state, both `nowrap`, because the browser
-       breaks Thai with a dictionary and "สรุป / ยอดขาย" reads as a rendering fault. -->
+  <!-- The same switcher as /sales, with the other half lit — see the note there. Both tabs are
+       `nowrap`, because the browser breaks Thai with a dictionary and "ช่วง / เวลา" reads as a
+       rendering fault. -->
   <header class="bar">
-    <div class="bar-left">
-      <h1>สรุปยอดขาย</h1>
-    </div>
+    <nav class="pages" aria-label="รายงานยอดขาย">
+      <a class="page-tab" href="/sales">วันนี้</a>
+      <span class="page-tab on" aria-current="page">ช่วงเวลา</span>
+    </nav>
     <div class="bar-right">
       <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
     </div>

@@ -503,3 +503,16 @@ test('the healthcheck reports the period report, so a redeploy can be confirmed'
     'the page is behind the login and this endpoint is not — it is the only way to tell from outside'
   );
 });
+
+test('each report page carries the way to the other one', async () => {
+  // Shipped once with neither linking to the other, which left both reachable only by typing the
+  // path. The current view is a `<span>` and not a self-link on purpose: on /summary a tap on it
+  // would reload without the `?from=&to=` and silently reset the period.
+  const sales = await (await asTill('/sales', { headers: { accept: 'text/html' } })).text();
+  assert.match(sales, /href="\/summary"/);
+  assert.match(sales, /<span class="page-tab on" aria-current="page">วันนี้<\/span>/);
+
+  const summary = await (await asTill('/summary', { headers: { accept: 'text/html' } })).text();
+  assert.match(summary, /href="\/sales"/);
+  assert.match(summary, /<span class="page-tab on" aria-current="page">ช่วงเวลา<\/span>/);
+});

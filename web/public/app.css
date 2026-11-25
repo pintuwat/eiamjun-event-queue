@@ -405,9 +405,54 @@ body {
    page that has quietly stopped updating looks exactly like a stall that has stopped selling. */
 .headline-fresh { font-size: 15px; color: #c7b393; }
 
-/* This page's bar carries two words and they are not allowed to fall apart: Compose and the
-   browser alike break Thai with a dictionary, and "ยอด / ขาย" reads as a rendering fault. */
-.report-page .bar h1,
+/*
+ * The two reports are two views of one thing, and the bar's title is how you move between them.
+ *
+ * A link in the page body would have cost a row above the figure the page exists for; a button in
+ * the bar beside a title would not fit at 375px next to the link state. The title **was** the
+ * thing that said which view you were on, so it became the pair — which says that and offers the
+ * other one for no extra height at all. The word ยอดขาย is not lost: the figure's own label
+ * carries it ("ยอดขายวันนี้ …", "ยอดรวม …"), and so does each page's `<title>`.
+ *
+ * ⚠️ The current view is a `<span>` rather than a self-link. On /summary a tap on it would reload
+ * without the `?from=&to=` and silently reset the period to the whole ledger — a figure quietly
+ * becoming a different figure is the one thing these pages must not do.
+ *
+ * The kitchen board links to neither, which is unchanged and is the owner's own decision: that
+ * screen is worked with both hands full, and a way off it is a way to lose the queue.
+ */
+.pages { display: flex; align-items: center; gap: 6px; }
+
+.page-tab {
+  font-size: 19px;
+  font-weight: 700;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  /* 12, and the far tab reads "ช่วงเวลา" rather than "ตามช่วงเวลา": measured at 375px the longer
+     pair plus the link state came to 391 against 375 and the bar took a second row — a whole wood
+     band of height, on a page that is scrolled, to say a word the page below already says. */
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #6b4c37;
+  background: #4a3327;
+  color: var(--gold);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Filled in the stall's gold, the same loud mark a chosen jingle interval and a chosen period
+   carry — one way of saying "this is the one", not a third invented here. */
+.page-tab.on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--wood);
+}
+
+/* Neither of these may fall apart: the browser breaks Thai with a dictionary, and "ช่วง / เวลา"
+   or "ต่อเซิร์ฟเวอร์ / ได้" reads as a rendering fault. The bar already wraps, so a width that
+   cannot hold both costs a row rather than a syllable. */
+.page-tab,
 .report-page .link-state { white-space: nowrap; }
 
 .takings { display: flex; flex-direction: column; gap: 2px; min-width: 0; }

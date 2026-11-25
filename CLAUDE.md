@@ -865,6 +865,28 @@ which is what a fresh deploy is.
 `/api/health` reports `period-report`, so the redeploy can be confirmed from outside without a
 password — the page and the endpoint are both behind the login.
 
+**The two reports switch between each other from the bar, and the title is the switcher**
+(`.pages` / `.page-tab`). Asked for after the first version shipped with neither page linking to
+the other — "ทำปุ่มให้ดีกว่า". A link in the page body would have cost a row above the figure the
+page exists for, and a button in the bar *beside* a title does not fit at 375px next to the link
+state. The title was already the thing that said which view you were on, so it became the pair:
+**วันนี้ · ช่วงเวลา**, the current one filled gold. The word ยอดขาย is not lost — the figure's own
+label carries it ("ยอดขายวันนี้ …", "ยอดรวม …") and so does each page's `<title>`.
+
+⚠️ **The current view is a `<span>`, not a self-link.** On `/summary` a tap on it would reload
+without the `?from=&to=` and silently reset the period to the whole ledger — a figure quietly
+becoming a different figure is the one thing these pages must not do.
+
+The far tab reads **ช่วงเวลา** and not ตามช่วงเวลา, and the pills are padded 12px rather than 14:
+measured at 375px the longer pair plus the link state came to 391 against 375 and the bar took a
+second row — a whole wood band of height, on a page that is scrolled, to say a word the page below
+already says. At 339 it holds one row. 320px (a first-generation SE) still wraps to two, which is
+the bar's own `flex-wrap` doing what it does for the board's jingle, and is left alone.
+
+**The kitchen board still links to neither, which is unchanged** and is the owner's own decision,
+re-confirmed when this was asked for: that screen is worked with both hands full, and a way off it
+is a way to lose the queue.
+
 ---
 
 ## Testing

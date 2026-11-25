@@ -14,11 +14,17 @@
   <!-- The day and the "how old is this" line are **in the figure's own card**, not up here. At
        375px a bar carrying four things broke "ยอดขาย" over two lines and "ต่อเซิร์ฟเวอร์ได้" over
        three, and ate a sixth of the screen saying nothing new. The link state stays, because it is
-       the one thing that is about the page rather than about the day. -->
+       the one thing that is about the page rather than about the day.
+
+       The title **is** the switcher: these are two views of one report, and the word that used to
+       sit here only said which of them you were on. Saying that and offering the other one costs
+       no height at all. The current view is a `<span>` and not a link — on /summary tapping it
+       would drop the `?from=&to=` and silently reset the period. -->
   <header class="bar">
-    <div class="bar-left">
-      <h1>ยอดขาย</h1>
-    </div>
+    <nav class="pages" aria-label="รายงานยอดขาย">
+      <span class="page-tab on" aria-current="page">วันนี้</span>
+      <a class="page-tab" href="/summary">ช่วงเวลา</a>
+    </nav>
     <div class="bar-right">
       <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
     </div>
