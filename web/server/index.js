@@ -134,6 +134,29 @@ export const server = http.createServer(async (req, res) => {
     if (req.method === 'GET' && url.pathname === '/api/sales') {
       return json(res, 200, { ok: true, serverNow: Date.now(), ...db.salesReport(dayFrom(url)) });
     }
+    /**
+     * Everything สรุปตามช่วงเวลา draws, for a span of trading days — see `periodReport`.
+     *
+     * A route of its own rather than a `from`/`to` on `/api/sales`, because they answer different
+     * questions and return different shapes: one is a day with its queue still open on it, the
+     * other is days that are over. One endpoint quietly meaning either would be read wrong by
+     * whichever caller got the shape it was not expecting.
+     */
+    if (req.method === 'GET' && url.pathname === '/api/sales/period') {
+      const span = db.ledgerSpan();
+      const today = businessDay();
+      const { from, to } = periodFrom(url, span, today);
+      return json(res, 200, {
+        ok: true,
+        serverNow: Date.now(),
+        // Both sent because the page cannot work either of them out for itself and must not try:
+        // the trading day is 07:00 Bangkok and this browser may be on a phone abroad or on a
+        // clock that has drifted. The presets are built from these.
+        today,
+        span,
+        ...db.periodReport(from, to)
+      });
+    }
 
     return await serveStatic(req, res);
   } catch (err) {
@@ -267,6 +290,35 @@ function shapeOrder(row) {
 function dayFrom(url) {
   const asked = url.searchParams.get('day');
   return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) ? asked : businessDay();
+}
+
+/**
+ * The period asked for: bounded, in order, and with a default that is the page's own.
+ *
+ * **Neither given means the whole ledger**, not today. An event's order book is a handful of
+ * trading days and "how did the event go" is the question this page is opened with — a page that
+ * opens on today is a page that opens saying nothing, next to a `/sales` that already says it
+ * better and live. It also makes the default one request rather than two: a browser cannot know
+ * what "all of it" is until the server has told it.
+ *
+ * Backwards is a fat finger on a date field, not a request for nothing, so it is swapped rather
+ * than answered with an empty period. A date that is not a date is ignored rather than refused —
+ * the figures that come back are labelled with the period they are for, on screen, so a silently
+ * widened period cannot be read as a narrow one.
+ */
+function periodFrom(url, span, today) {
+  const asked = (name) => {
+    const value = url.searchParams.get(name);
+    return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  };
+  let from = asked('from');
+  let to = asked('to');
+  if (!from && !to) return { from: span.first || today, to: span.last || today };
+  // One end alone is one day: somebody asking about a date, not from it to forever.
+  from = from || to;
+  to = to || from;
+  // ISO dates sort lexicographically, which is also what makes the SQL a plain string compare.
+  return from <= to ? { from, to } : { from: to, to: from };
 }
 
 // ---------------------------------------------------------------- sessions
@@ -428,6 +480,10 @@ async function serveStatic(req, res) {
   // worked with both hands full and a way off it is a way to lose the queue, so this is opened
   // deliberately — typed once on the phone that wants it, and bookmarked.
   if (pathname === '/sales') pathname = '/sales.html';
+  // สรุปตามช่วงเวลา, beside it and just as unadvertised: the board links to neither, for the same
+  // reason. Typed once on the phone that wants it, and bookmarked — and a bookmark may carry
+  // `?from=&to=`, which is the whole reason the period lives in the URL rather than in storage.
+  if (pathname === '/summary') pathname = '/summary.html';
   // Older iOS probes the "precomposed" name when it does not like a page's declared icon. Same
   // file — that suffix only ever meant "don't add your own gloss", and nothing does that now.
   if (pathname === '/apple-touch-icon-precomposed.png') pathname = '/apple-touch-icon.png';

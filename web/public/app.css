@@ -517,6 +517,136 @@ body {
 .bill.cancelled { opacity: 0.55; }
 .bill.cancelled .bill-total { text-decoration: line-through; }
 
+/*
+ * ---- สรุปยอดขายตามช่วงเวลา (/summary) ----
+ *
+ * The same paper, the same wood headline and the same `.meter`, `.item` and `.panel` the day
+ * report draws with — a second palette for a second report is the duplication this project keeps
+ * warning about. What is its own is the period picker and the per-day list.
+ */
+
+/* A sub-note in a heading: "ยอดตามชั่วโมง" is the panel, "รวมทุกวันในช่วงนี้" is the thing that
+   stops it being read as this one day's. Quieter and lighter, so the heading is still a heading. */
+.panel h2 small {
+  font-size: 15px;
+  font-weight: 400;
+  color: var(--ink-dim);
+}
+
+/* The question, above the answer. Below the headline it read as a filter on a figure already
+   stated; above it, the page reads as a question and its answer. */
+.period { display: flex; flex-direction: column; gap: 12px; }
+
+.period-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/*
+ * One tap for the four periods worth having. They are **derived from the period**, not a second
+ * setting beside the dates (see summary.js) — so one is lit exactly when it would set what is
+ * already on screen, and typing a date simply lights none of them.
+ */
+.chip {
+  font: inherit;
+  /* "7 วัน" and "เดือนนี้" have nowhere safe to break, and the browser breaks Thai with a
+     dictionary. Allowed to run to the edge; never to split. */
+  white-space: nowrap;
+  font-size: 18px;
+  min-height: 44px;
+  /* 12 and not 16: measured at 375px the four chips plus their gaps came to 331 against 319 of
+     panel, and "ทั้งหมด" — the default, and the one most likely to be tapped — wrapped onto a row
+     of its own. 12 brings them to 299 and the row holds. The height is untouched; this is padding
+     spent on air, not on the target. */
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid #d8cdb4;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Filled in the stall's gold, the same loud colour a chosen option carries on the order sheet and
+   the jingle control — not a third one invented for this screen. */
+.chip.on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--wood);
+  font-weight: 700;
+}
+
+/* Two fields side by side, wrapping rather than shrinking: a date field narrower than the date in
+   it is the one control on this page that must stay readable. */
+.period-range { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.period-field {
+  flex: 1 1 150px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.period-field small { font-size: 15px; color: var(--ink-dim); }
+
+/*
+ * A native date input, deliberately — unlike the shop's own server, which replaced its `<select>`
+ * day picker with buttons drawn in the page.
+ *
+ * That decision was about a *list*: a native select hands a list of thirty days to the OS wheel,
+ * which covers the screen and is styled by iOS rather than by this stall. A date is different —
+ * it is exactly what the native control is for, iOS draws a real calendar for it, and writing one
+ * by hand is a lot of code for a question the presets above already answer most of the time.
+ *
+ * `min` and `max` are set from the ledger's own span, so a period with nothing in it cannot be
+ * picked by accident.
+ */
+.period-field input[type='date'] {
+  font: inherit;
+  font-size: 18px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid #d8cdb4;
+  background: #fff;
+  color: var(--ink);
+  /* Safari gives a date input an intrinsic width and will not shrink it below it, which pushed the
+     second field out of the row at 375px until `min-width: 0` let it. */
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Two lines under the big figure that qualify it: the best day, and what came back off the period
+   as cancelled. Empty rather than zero when there is nothing to say, so neither is a line the eye
+   learns to skip. */
+.headline-note { font-size: 16px; color: #e8d9bc; }
+.headline-note:empty { display: none; }
+.headline-note.alert { color: #f0b3a8; }
+
+/* One row per day that sold — and no row for a day the stall was shut, which the server decides.
+   Padding an event out to a calendar month draws a chart that is mostly empty and reads as a
+   collapse in takings. */
+.days { display: flex; flex-direction: column; gap: 10px; }
+
+.day-row {
+  background: #fff;
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* The best day of the period gets the gold edge, the same mark the board puts on a card that has
+   waited too long: this stylesheet has one way of saying "this is the one to look at". */
+.day-row.best { box-shadow: inset 0 0 0 2px var(--gold); }
+
+.day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; min-width: 0; }
+.day-label { font-size: 19px; font-weight: 600; min-width: 0; }
+.day-money { font-size: 20px; font-weight: 700; white-space: nowrap; }
+.day-foot { display: flex; justify-content: space-between; gap: 10px; }
+.day-count { font-size: 15px; color: var(--ink-dim); }
+
 /* ---- login ---- */
 body.centered {
   display: flex;

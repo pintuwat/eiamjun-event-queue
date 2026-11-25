@@ -57,6 +57,16 @@ node web/server/index.js
 It prints the LAN URLs to open on the iPad. Put the page on the home screen: it is built for that
 (standalone, its own icon, safe-area insets).
 
+Three pages, and only the first is linked from anywhere — the kitchen screen is worked with both
+hands full, and a way off it is a way to lose the queue. The other two are typed once on the phone
+that wants them, and bookmarked:
+
+| | |
+|---|---|
+| `/` | the kitchen board — the iPad on its stand |
+| `/sales` | รายงานยอดขาย, today's money as it happens |
+| `/summary` | สรุปยอดขายตามช่วงเวลา, several days at once; `?from=&to=` bookmarks one event |
+
 The order book is SQLite at `web/data/event.db` by default. Point it somewhere backed up:
 
 ```bash

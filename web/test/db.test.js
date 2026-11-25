@@ -396,3 +396,122 @@ test('a promotion over several bundles discounts each one', () => {
     239
   );
 });
+
+/*
+ * ---- สรุปตามช่วงเวลา ----
+ *
+ * The rules the period report adds: a span of days read as strings, days that sold and no row for
+ * the ones that did not, and dishes counted across the whole period rather than per day.
+ */
+
+/** Three trading days with different takings, so "which day was best" has a real answer. */
+function threeDays() {
+  const db = tempDb();
+  // 2026-11-10: two bowls, 60 each.
+  db.recordOrder(order(1, { day: '2026-11-10', orderedAt: Date.UTC(2026, 10, 10, 5, 0) }));
+  db.recordOrder(order(2, { day: '2026-11-10', orderedAt: Date.UTC(2026, 10, 10, 6, 0) }));
+  // 2026-11-11: nothing. The stall was shut.
+  // 2026-11-12: one bowl, and one worth more.
+  db.recordOrder(order(3, { day: '2026-11-12', total: 200, orderedAt: Date.UTC(2026, 10, 12, 8, 0) }));
+  // 2026-11-13, outside the period the tests ask for.
+  db.recordOrder(order(4, { day: '2026-11-13', total: 999, orderedAt: Date.UTC(2026, 10, 13, 5, 0) }));
+  return db;
+}
+
+test('a period adds up the days inside it and nothing outside', () => {
+  const db = threeDays();
+  const report = db.periodReport('2026-11-10', '2026-11-12');
+
+  assert.equal(report.from, '2026-11-10');
+  assert.equal(report.to, '2026-11-12');
+  assert.equal(report.orders, 3, 'the 13th is outside the period');
+  assert.equal(report.takings, 60 + 60 + 200);
+  // Inclusive at both ends, which is what the page's wording says it is.
+  assert.equal(db.periodReport('2026-11-13', '2026-11-13').takings, 999);
+});
+
+test('a day the stall was shut gets no row, rather than a zero', () => {
+  // The shop's own server pads a month with zeroes, which is right for a shop that opens daily.
+  // Padding a three-day event out to a calendar month draws a chart that is mostly empty and reads
+  // as a collapse in takings.
+  const report = threeDays().periodReport('2026-11-01', '2026-11-30');
+  assert.deepEqual(report.days.map((d) => d.day), ['2026-11-10', '2026-11-12', '2026-11-13']);
+  assert.deepEqual(report.days.map((d) => d.takings), [120, 200, 999]);
+  assert.deepEqual(report.days.map((d) => d.orders), [2, 1, 1]);
+});
+
+test('the best day of a period is named, not left to be read off a chart', () => {
+  const report = threeDays().periodReport('2026-11-10', '2026-11-12');
+  assert.equal(report.best.day, '2026-11-12');
+  assert.equal(report.best.takings, 200);
+});
+
+test('a period with nothing in it is empty rather than broken', () => {
+  const report = threeDays().periodReport('2026-10-01', '2026-10-31');
+  assert.equal(report.orders, 0);
+  assert.equal(report.takings, 0);
+  assert.deepEqual(report.days, []);
+  assert.deepEqual(report.items, []);
+  assert.deepEqual(report.hours, []);
+  assert.equal(report.best, null, 'nothing to name as the best day');
+});
+
+test('a cancelled bill is out of a period total and counted beside it', () => {
+  const db = tempDb();
+  db.recordOrder(order(1, { day: '2026-11-10', total: 100 }));
+  db.recordOrder(order(2, { day: '2026-11-11', total: 40 }));
+  db.markCancelled('2026-11-11', 2, 'pos', 1);
+
+  const report = db.periodReport('2026-11-10', '2026-11-11');
+  assert.equal(report.takings, 100, 'out of the takings');
+  assert.equal(report.orders, 1);
+  // Counted rather than merely excluded: over one day the four status boxes say this, and over a
+  // period they cannot — waiting/ready are about right now. What survives is how much came back.
+  assert.equal(report.cancelled.orders, 1);
+  assert.equal(report.cancelled.takings, 40);
+  assert.deepEqual(report.days.map((d) => d.day), ['2026-11-10'], 'a day of only cancellations is not a day that sold');
+});
+
+test('dishes are counted across the whole period, not per day', () => {
+  const db = tempDb();
+  for (const [i, day] of ['2026-11-10', '2026-11-11', '2026-11-12'].entries()) {
+    db.recordOrder(
+      order(i + 1, {
+        day,
+        total: 110,
+        lines: [
+          { name: 'ก๋วยเตี๋ยวคลุก', options: '', note: '', qty: 2, unitPrice: 50 },
+          { name: 'แคปป๊อป', options: '', note: '', qty: 1, unitPrice: 10 }
+        ]
+      })
+    );
+  }
+  const items = db.periodReport('2026-11-10', '2026-11-12').items;
+  assert.deepEqual(items.map((i) => [i.name, i.qty, i.takings]), [
+    ['ก๋วยเตี๋ยวคลุก', 6, 300],
+    ['แคปป๊อป', 3, 30]
+  ]);
+});
+
+test('a period cuts its hours on the trading day too, so 23:00 comes before 01:00', () => {
+  const db = tempDb();
+  // 23:00 Bangkok on the 10th is 16:00 UTC; 00:30 on the 11th is 17:30 UTC the same evening, and
+  // both belong to the trading day that began at 07:00 on the 10th.
+  db.recordOrder(order(1, { day: '2026-11-10', orderedAt: Date.UTC(2026, 10, 10, 16, 0) }));
+  db.recordOrder(order(2, { day: '2026-11-10', orderedAt: Date.UTC(2026, 10, 10, 17, 30) }));
+  db.recordOrder(order(3, { day: '2026-11-11', orderedAt: Date.UTC(2026, 10, 11, 3, 0) }));
+
+  const hours = db.periodReport('2026-11-10', '2026-11-11').hours.map((h) => h.hour);
+  assert.deepEqual(hours, [10, 23, 0], 'the trading day starts at 07:00, so 10:00 first and 00:00 last');
+});
+
+test('the ledger span is what "ทั้งหมด" means, and it bounds the date fields', () => {
+  const empty = tempDb();
+  assert.deepEqual(empty.ledgerSpan(), { first: null, last: null, days: 0 });
+
+  const db = threeDays();
+  const span = db.ledgerSpan();
+  assert.equal(span.first, '2026-11-10');
+  assert.equal(span.last, '2026-11-13');
+  assert.equal(span.days, 3, 'the 11th sold nothing, so it is not one of the days');
+});

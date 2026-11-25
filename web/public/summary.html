@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="สรุปยอดขาย" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/app.css" />
+  <title>สรุปยอดขายตามช่วงเวลา เอี้ยมจุ๊น</title>
+</head>
+<body class="report-page">
+  <!-- The same bar as /sales: one word and the link state, both `nowrap`, because the browser
+       breaks Thai with a dictionary and "สรุป / ยอดขาย" reads as a rendering fault. -->
+  <header class="bar">
+    <div class="bar-left">
+      <h1>สรุปยอดขาย</h1>
+    </div>
+    <div class="bar-right">
+      <span id="link" class="link-state">กำลังเชื่อมต่อ…</span>
+    </div>
+  </header>
+
+  <main class="report" id="report">
+    <!-- The picker is **above** the figure, not beside it: it is the question, and the headline
+         under it is the answer. Below the figure it read as a filter on something already said. -->
+    <section class="panel period">
+      <div class="period-chips" id="presets"></div>
+      <div class="period-range">
+        <label class="period-field">
+          <small>จากวันที่</small>
+          <input type="date" id="from" />
+        </label>
+        <label class="period-field">
+          <small>ถึงวันที่</small>
+          <input type="date" id="to" />
+        </label>
+      </div>
+    </section>
+
+    <section class="headline">
+      <div class="headline-top">
+        <div class="takings">
+          <span class="takings-label" id="period-words">—</span>
+          <span class="takings-figure" id="takings">—</span>
+        </div>
+        <div class="headline-side">
+          <div class="stat"><span id="bills">0</span><small>บิล</small></div>
+          <div class="stat"><span id="average">0</span><small>บาท/บิล</small></div>
+          <div class="stat"><span id="days">0</span><small>วันที่ขาย</small></div>
+        </div>
+      </div>
+      <!-- Two lines that qualify the figure above them: which day was the best one, and how much
+           came back off the period as cancelled bills. Both empty rather than zero when there is
+           nothing to say — a line reading "ยกเลิก 0 บิล" is a line nobody reads. -->
+      <span class="headline-note" id="best"></span>
+      <span class="headline-note alert" id="cancelled"></span>
+      <span class="headline-fresh" id="fresh"></span>
+    </section>
+
+    <section class="panel">
+      <h2>ยอดรายวัน</h2>
+      <div class="days" id="day-rows"></div>
+    </section>
+
+    <section class="panel">
+      <h2>ขายดีในช่วงนี้</h2>
+      <div class="items" id="items"></div>
+    </section>
+
+    <section class="panel">
+      <h2>ยอดตามชั่วโมง <small>รวมทุกวันในช่วงนี้</small></h2>
+      <div class="hours" id="hours"></div>
+    </section>
+  </main>
+
+  <script type="module" src="/summary.js"></script>
+</body>
+</html>

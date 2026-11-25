@@ -417,3 +417,89 @@ test('the healthcheck says what this deployment can do, with no credentials', as
     'a server with orders.session says so, and one without must not'
   );
 });
+
+/*
+ * ---- สรุปตามช่วงเวลา (/summary) ----
+ *
+ * The route in front of `periodReport`, over real HTTP — the whole point of this file. The rules
+ * it adds of its own are about the *query*: an absent period, a backwards one and a nonsense date
+ * are each answered rather than refused, and the answer says which period it actually used.
+ */
+
+test('the period report needs credentials, like every other read', async () => {
+  const res = await call('/api/sales/period');
+  assert.equal(res.status, 401);
+  assert.equal((await res.json()).ok, false);
+});
+
+test('a period adds up the days asked for, and says which they were', async () => {
+  const day = '2026-09-01';
+  const next = '2026-09-02';
+  await asTill('/api/orders', { method: 'POST', body: order(11, { day, total: 100 }) });
+  await asTill('/api/orders', { method: 'POST', body: order(12, { day: next, total: 50 }) });
+
+  const body = await (await asTill(`/api/sales/period?from=${day}&to=${next}`)).json();
+  assert.equal(body.ok, true);
+  assert.equal(body.from, day);
+  assert.equal(body.to, next);
+  assert.equal(body.takings, 150);
+  assert.equal(body.orders, 2);
+  assert.deepEqual(body.days.map((d) => d.day), [day, next]);
+  assert.equal(body.best.day, day, 'the better of the two');
+  // Both sent because the page cannot work either out for itself: the trading day is 07:00
+  // Bangkok and the browser may be abroad or on a drifted clock.
+  assert.match(body.today, /^\d{4}-\d{2}-\d{2}$/);
+  assert.match(body.span.first, /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test('one end of the period alone means that one day', async () => {
+  const body = await (await asTill('/api/sales/period?from=2026-09-01')).json();
+  assert.equal(body.from, '2026-09-01');
+  assert.equal(body.to, '2026-09-01');
+  assert.equal(body.takings, 100);
+});
+
+test('no period asked for is the whole ledger, which is the page default', async () => {
+  // Not today: an event's order book is a handful of trading days and "how did the event go" is
+  // what this page is opened with. It also makes the default one request rather than two, since a
+  // browser cannot know what "all of it" is until the server has said.
+  const body = await (await asTill('/api/sales/period')).json();
+  assert.equal(body.from, body.span.first);
+  assert.equal(body.to, body.span.last);
+  assert.ok(body.takings > 0);
+});
+
+test('a backwards period is swapped, not answered with nothing', async () => {
+  // A fat finger on a date field. The reply names the period it used, so the page follows the
+  // answer rather than its own request.
+  const body = await (await asTill('/api/sales/period?from=2026-09-02&to=2026-09-01')).json();
+  assert.equal(body.from, '2026-09-01');
+  assert.equal(body.to, '2026-09-02');
+  assert.equal(body.takings, 150);
+});
+
+test('a date that is not a date is ignored rather than refused', async () => {
+  const body = await (await asTill('/api/sales/period?from=yesterday&to=2026-09-02')).json();
+  assert.equal(body.from, '2026-09-02', 'one usable end means that day');
+  assert.equal(body.to, '2026-09-02');
+});
+
+test('/summary serves the page, and a browser without a session is sent to log in', async () => {
+  const page = await asTill('/summary', { headers: { accept: 'text/html' } });
+  assert.equal(page.status, 200);
+  const html = await page.text();
+  assert.match(html, /summary\.js/);
+  assert.match(html, /report-format\.js|summary\.js/);
+
+  const out = await call('/summary', { headers: { accept: 'text/html' } });
+  assert.equal(out.status, 302);
+  assert.equal(out.headers.get('location'), '/login');
+});
+
+test('the healthcheck reports the period report, so a redeploy can be confirmed', async () => {
+  const body = await (await call('/api/health')).json();
+  assert.ok(
+    body.features.includes('period-report'),
+    'the page is behind the login and this endpoint is not — it is the only way to tell from outside'
+  );
+});

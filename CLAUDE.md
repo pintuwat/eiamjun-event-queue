@@ -782,14 +782,98 @@ is the thing to check first if it ever does *not* settle.
 till may mark something collected while its own order push is still in the outbox, and a 404 would
 make that outbox retry forever.
 
+### สรุปยอดขายตามช่วงเวลา (`/summary`) — several days at once
+
+A third page beside the board and the day report, and read **after** an event rather than during
+one. `/sales` is always about the day in progress; this answers the questions a day cannot — what
+the event made, which of its days carried it, and what to prep more of next time. Read-only and
+owning nothing, like its neighbour, and unadvertised for the same reason: nothing on the board
+links to either, because a way off the kitchen screen is a way to lose the queue.
+
+**A route of its own** (`GET /api/sales/period`), not a `from`/`to` bolted onto `/api/sales`. The
+two return different shapes — one is a day with an open queue on it, the other is days that are
+over — and one endpoint quietly meaning either is read wrong by whichever caller got the shape it
+was not expecting. Both are one request per tick, for the reason the day report already records.
+
+**The default period is the whole ledger, not today.** An event's order book is a handful of
+trading days and "how did the event go" is what this page is opened with; opening on today would
+say less than `/sales` already says, live. It also makes the default **one** request rather than
+two, since a browser cannot know what "all of it" is until the server has told it — so an absent
+`from`/`to` is answered with `ledgerSpan()` rather than with the current day.
+
+**The period is one piece of state, and the chips are derived from it.** ปิด-style again: a
+chosen preset *beside* two dates can hold "7 วัน selected, dates saying something else", which is
+a state nobody could read off the screen and which the two halves would then have to agree about.
+A chip is lit exactly when it would set what is already on screen, and typing a date lights none.
+
+**It lives in the URL, never in `localStorage`.** The jingle's interval is saved and this is not,
+and the difference is what a wrong one costs: a wrong interval is *heard*, a wrong period is
+*believed*. In the URL it is also bookmarkable, which is how a particular event gets reopened.
+
+**The server is the authority on which period it answered.** It swaps a backwards pair and widens
+an absent one, so the page follows the reply rather than its own request — which is also what makes
+a fat finger on a date field a swap instead of an empty screen. ⚠️ When the fetch *fails*, the
+chips show what was asked for while the headline still names the period the figures on screen are
+for. That is deliberate: the figure must never be labelled with something it is not, and the link
+state going red is what says the tap did not land.
+
+**No row for a day the stall was shut.** The shop's own server pads a month with zeroes, which is
+right for a shop that opens daily — a gap there is a day worth asking about. An event sells on the
+days there is an event, so padding a three-day weekend out to a calendar month draws a chart that
+is 90% empty and reads as a collapse in takings.
+
+**No queue-status panel, and cancellations instead.** waiting/ready are about *right now*: a
+week-old order is not กำลังทำ. What survives a period is how much came back off it, so that is one
+line under the figure — and only when there is one, because "ยกเลิก 0 บิล" is a line nobody reads.
+
+**Hours are summed across the period, which is the one figure that gets better with more days in
+it**: a single service's busy hour is one service; several events' is the hour to have a second
+pair of hands for. Cut on the trading day, so 23:00 sorts before the 01:00 after it and 06:00 is
+last.
+
+**The day list is a list, not a link.** A day's own history is read in `/sales`, which already
+answers it live, and a second route into one question is the duplication this project keeps
+warning about.
+
+**It polls only while the period contains today.** A finished event's figures are finished;
+polling them is a request a minute for a number that cannot move. 30s when it is live, against the
+day report's 6s.
+
+**A native `<input type="date">`, deliberately** — and not the hand-drawn picker the shop's own
+server replaced its `<select>` with. That decision was about a *list*: a native select hands thirty
+days to the OS wheel, which covers the screen and is styled by iOS rather than by this stall. A
+date is exactly what the native control is for, iOS draws a real calendar, and the presets answer
+the question most of the time anyway. `min`/`max` come from the ledger's span, so a period with
+nothing in it cannot be picked by accident.
+
+**`public/report-format.js` is the wording both report pages share** — money, the Thai date, the
+stall's clock, `phrases`, the meter and the empty line. Extracted when this page wanted all of it:
+a Thai date written twice is a date that will disagree with itself, and `phrases` is a rule about
+how Thai breaks, which must exist once. Pure functions and no module-level DOM, so `format.test.js`
+pins the dates and the money in node — including that a day string is read in **UTC**, checked
+under Kiritimati and Midway, because parsing `YYYY-MM-DD` in the browser's own zone moves it a day
+either side of the date line.
+
+**Measured in the pane at 375 / 768 / 1024**, like the jingle's bar. The four chips plus their gaps
+came to 331 against 319 of panel at 375, so "ทั้งหมด" — the default, and the one most likely to be
+tapped — wrapped onto a row of its own; the chip padding is 12px rather than 16 and they come to
+299. Nothing overflows at any width. The rest was driven on a throwaway server with five seeded
+trading days: every preset, a typed date, a backwards pair swapping itself, a single-day period
+hiding the best-day line, a dropped connection keeping the last figures, and an **empty ledger**,
+which is what a fresh deploy is.
+
+`/api/health` reports `period-report`, so the redeploy can be confirmed from outside without a
+password — the page and the endpoint are both behind the login.
+
 ---
 
 ## Testing
 
 - `./gradlew test` — the ticket layouts, the PromptPay/ถุงเงิน fixtures and the QR encoder, the
   last two carried over from the shop's till so the money-critical part stays pinned.
-- `cd web && npm test` — `db.test.js` for the rules, **`api.test.js` for the routes over real
-  HTTP**. That second file exists because of a bug in the shop's server that shipped and stayed
+- `cd web && npm test` — `db.test.js` for the rules, `format.test.js` for the wording the two
+  report pages share, and **`api.test.js` for the routes over real HTTP**. That last file exists
+  because of a bug in the shop's server that shipped and stayed
   invisible for weeks: twelve green tests called the rule directly while the route in front of it
   answered 400 to everything. **Any new endpoint needs a test through the server.**
 

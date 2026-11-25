@@ -14,6 +14,8 @@
  * somebody is about to act on that is worse than being a few seconds old.
  */
 
+import { baht, thaiDate, shopTime, freshness, phrases, meter, empty } from '/report-format.js';
+
 /** Slower than the board's 4s. Money is read, not worked from, and nothing here is a race. */
 const POLL_MS = 6000;
 
@@ -69,7 +71,7 @@ function setLink(up) {
 function render() {
   if (!report) return;
   el.day.textContent = thaiDate(report.day);
-  el.fresh.textContent = freshness();
+  el.fresh.textContent = freshness(at);
 
   const bills = Number(report.orders || 0);
   const takings = Number(report.takings || 0);
@@ -81,22 +83,6 @@ function render() {
   drawItems();
   drawHours();
   drawRecent();
-}
-
-/**
- * How old the figures on screen are.
- *
- * A report that quietly stops updating looks exactly like a stall that has stopped selling, and
- * only one of those is worth reacting to — the same reasoning that puts the board's link state in
- * words. Under half a minute it says so plainly rather than counting, because a number that ticks
- * every second is read as the takings changing.
- */
-function freshness() {
-  if (!at) return '';
-  const seconds = Math.round((Date.now() - at) / 1000);
-  if (seconds < 30) return 'ล่าสุดเมื่อครู่นี้';
-  if (seconds < 90) return 'ล่าสุด 1 นาทีที่แล้ว';
-  return `ล่าสุด ${Math.round(seconds / 60)} นาทีที่แล้ว`;
 }
 
 function drawStatuses() {
@@ -141,20 +127,13 @@ function drawItems() {
     qty.textContent = `${item.qty}`;
     head.append(name, qty);
 
-    const meter = document.createElement('div');
-    meter.className = 'meter';
-    const fill = document.createElement('div');
-    fill.className = 'meter-fill';
-    fill.style.width = `${Math.max(2, Math.round((item.qty / top) * 100))}%`;
-    meter.append(fill);
-
     const money = document.createElement('div');
     money.className = 'item-money';
     // Both figures, because they answer different questions: how many to prep more of, and where
     // the day's money actually came from. A dear item sells few and earns a lot.
     money.textContent = `${baht(item.takings || 0)} บาท`;
 
-    row.append(head, meter, money);
+    row.append(head, meter(item.qty, top), money);
     el.items.append(row);
   }
 }
@@ -173,18 +152,11 @@ function drawHours() {
     clock.className = 'hour-clock';
     clock.textContent = `${String(hour.hour).padStart(2, '0')}:00`;
 
-    const meter = document.createElement('div');
-    meter.className = 'meter';
-    const fill = document.createElement('div');
-    fill.className = 'meter-fill';
-    fill.style.width = `${Math.max(2, Math.round((hour.takings / top) * 100))}%`;
-    meter.append(fill);
-
     const money = document.createElement('span');
     money.className = 'hour-money';
     money.textContent = baht(hour.takings);
 
-    row.append(clock, meter, money);
+    row.append(clock, meter(hour.takings, top), money);
     el.hours.append(row);
   }
 }
@@ -217,62 +189,6 @@ function drawRecent() {
   }
 }
 
-function empty(text) {
-  const p = document.createElement('p');
-  p.className = 'empty';
-  p.textContent = text;
-  return p;
-}
-
-/** Thousands separated, because 12450 and 1245 are one glance apart on a figure being read fast. */
-function baht(n) {
-  return Number(n || 0).toLocaleString('en-US');
-}
-
-/**
- * The clock the stall keeps, never the one this phone is set to.
- *
- * The same rule the server follows for the trading day: a browser abroad, or a phone whose clock
- * has drifted, must not restate when a sale happened.
- */
-function shopTime(at) {
-  return new Intl.DateTimeFormat('en-GB', {
-    timeZone: 'Asia/Bangkok',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(new Date(at));
-}
-
-/** "ศ. 20 พ.ย. 2569" — the same wording the board puts on its own day. */
-function thaiDate(day) {
-  if (!day) return '';
-  const [year, month, date] = day.split('-').map(Number);
-  const months = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-  const weekdays = ['อา.', 'จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.'];
-  const atDate = new Date(Date.UTC(year, month - 1, date));
-  return `${weekdays[atDate.getUTCDay()]} ${date} ${months[month - 1]} ${year + 543}`;
-}
-
-/**
- * A dish name broken between words and nowhere else — the board's rule, for the same reason.
- *
- * Thai writes no spaces inside a word, so a browser breaks it with a dictionary and "ลูกชิ้นล้วน"
- * falls as "ลูก" over "ชิ้นล้วน". `word-break: keep-all` does not stop it, so the break points are
- * chosen here: one `nowrap` span per phrase somebody typed a space between.
- */
-function phrases(into, text) {
-  String(text)
-    .split(' ')
-    .forEach((word, i) => {
-      if (i) into.append(' ');
-      const span = document.createElement('span');
-      span.className = 'phrase';
-      span.textContent = word;
-      into.append(span);
-    });
-}
-
 poll();
 setInterval(poll, POLL_MS);
 // Back from a pocket or a locked screen: show the figures now rather than after a poll.
@@ -282,5 +198,5 @@ document.addEventListener('visibilitychange', () => {
 // The "how old is this" line is the only thing that changes without a poll, and it is the whole
 // reason a stale page can be told from a quiet one.
 setInterval(() => {
-  if (report) el.fresh.textContent = freshness();
+  if (report) el.fresh.textContent = freshness(at);
 }, 15_000);

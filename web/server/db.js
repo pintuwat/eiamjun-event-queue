@@ -2,10 +2,12 @@
  * The event's order book: one SQLite file through `node:sqlite`, so this server still has **zero
  * dependencies** and can be dropped on anything with Node.
  *
- * Two tables and a key/value row, and the reporting on top of them is **one day deep** — the
- * shop's own server grew สรุปยอดขาย over months of service, with months to read back; an event
- * runs for a weekend, and the question is always about the day in progress. `salesReport` is that
- * day and nothing else: no month, no comparison against yesterday, no export.
+ * Two tables and a key/value row, and two reports on top of them, because a stall asks two
+ * different questions. `salesReport` is **one day deep** and is read during a service: the
+ * question then is always about the day in progress. `periodReport` is a span of days and is read
+ * afterwards — what the event made, which of its days was the good one, what to prep more of next
+ * time. Neither is built out of the other's arithmetic, and neither exports: the shop's own server
+ * grew a CSV over months of trading and nothing here has asked for one.
  */
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
@@ -471,6 +473,125 @@ function api(db) {
     },
 
     /**
+     * The first and last day the order book holds anything on, and how many days that is.
+     *
+     * The period page needs it before it can draw anything: its own default is **the whole
+     * ledger**, and a browser cannot know what that is. It is also what bounds the two date
+     * fields, so a period with nothing in it cannot be picked by accident.
+     *
+     * A day whose only order was cancelled still counts — the stall was open and took it, and
+     * leaving it out would make the span disagree with the day list below it, which draws the
+     * same day as a zero.
+     */
+    ledgerSpan() {
+      const row = db
+        .prepare('SELECT MIN(day) AS first, MAX(day) AS last, COUNT(DISTINCT day) AS days FROM orders')
+        .get();
+      return { first: row.first || null, last: row.last || null, days: Number(row.days || 0) };
+    },
+
+    /**
+     * Everything สรุปตามช่วงเวลา draws, over a span of trading days, in one read.
+     *
+     * The day report above was deliberately one day deep — an event runs for a weekend and the
+     * question during a service is always about the day in progress. This is the question asked
+     * **afterwards**, and it is a different one: what did the event make, which of its days was
+     * the good one, and what should be prepped more of next time. Both read the same rules, and
+     * neither is a second copy of the other's arithmetic.
+     *
+     * `from` and `to` are inclusive `YYYY-MM-DD`, compared as **strings**. That is the whole
+     * reason `day` is stored as text rather than derived from the epoch in SQL: Thailand is
+     * UTC+7, so an evening order would otherwise land on the next day's takings, and every
+     * per-day query is a plain string match instead. ISO dates sort lexicographically, so a
+     * `BETWEEN` on them is a real date range.
+     *
+     * One request per tick, like the day report, and for the same reason: a page that asked
+     * separately for its total, its days and its dishes would show half of one moment beside
+     * half of another, on figures somebody is about to act on.
+     */
+    periodReport(from, to) {
+      const totals = db
+        .prepare(
+          `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS takings
+             FROM orders WHERE day >= ? AND day <= ? AND status != 'cancelled'`
+        )
+        .get(from, to);
+
+      // Counted and totalled rather than merely excluded. Over one day the four status boxes say
+      // this; over a period they cannot — a week-old order is not "กำลังทำ", and waiting/ready are
+      // about right now. What survives a period is how much came back off it, which is the one
+      // figure somebody checks when a total looks wrong.
+      const cancelled = db
+        .prepare(
+          `SELECT COUNT(*) AS orders, COALESCE(SUM(total), 0) AS takings
+             FROM orders WHERE day >= ? AND day <= ? AND status = 'cancelled'`
+        )
+        .get(from, to);
+
+      /**
+       * One row per day that sold, and **no row for a day the stall was shut**.
+       *
+       * The shop's own server pads a month with zeroes, which is right for a shop that opens every
+       * day: a gap there is a day worth asking about. An event stall sells on the days there is an
+       * event, so padding a three-day weekend out to a calendar month would draw a chart that is
+       * 90% empty and read as a collapse in takings.
+       */
+      const days = db
+        .prepare(
+          `SELECT day, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS takings
+             FROM orders WHERE day >= ? AND day <= ? AND status != 'cancelled'
+            GROUP BY day ORDER BY day`
+        )
+        .all(from, to);
+
+      // Grouped by name across the whole period, which is the point: one event's forty bowls say
+      // less than four events' hundred and sixty. Both figures per dish, as on the day report —
+      // how much to prep, and where the money came from.
+      const items = db
+        .prepare(
+          `SELECT l.name, SUM(l.qty) AS qty, COALESCE(SUM(l.qty * l.unit_price), 0) AS takings
+             FROM order_lines l JOIN orders o ON o.id = l.order_id
+            WHERE o.day >= ? AND o.day <= ? AND o.status != 'cancelled'
+            GROUP BY l.name ORDER BY qty DESC`
+        )
+        .all(from, to);
+
+      // The one figure that gets *better* with more days in it: a single service's busy hour is
+      // one service, several events' is the hour to have the second pair of hands for. Grouped in
+      // JS for the reason `salesReport` is — the hour has to be Bangkok's and `ordered_at` is an
+      // epoch, and baking an offset into a query is how the shop's server filed a whole evening
+      // under the following day.
+      const hours = new Map();
+      for (const row of db
+        .prepare(
+          `SELECT ordered_at, total FROM orders
+            WHERE day >= ? AND day <= ? AND status != 'cancelled'`
+        )
+        .all(from, to)) {
+        const hour = shopHour(row.ordered_at);
+        const seen = hours.get(hour) || { hour, takings: 0, orders: 0 };
+        seen.takings += row.total;
+        seen.orders += 1;
+        hours.set(hour, seen);
+      }
+
+      return {
+        from,
+        to,
+        orders: totals.orders,
+        takings: totals.takings,
+        cancelled,
+        days,
+        items,
+        hours: [...hours.values()].sort((a, b) => tradingHour(a.hour) - tradingHour(b.hour)),
+        // Named in words as well as drawn in the chart, because "which day was the good one" is
+        // the question this page is opened with and a bar is read by comparing. Ties go to the
+        // earlier day, which is arbitrary and harmless; nothing is decided by it.
+        best: days.reduce((top, day) => (!top || day.takings > top.takings ? day : top), null)
+      };
+    },
+
+    /**
      * What this deployment can actually do, read off the live schema.
      *
      * "Did the redeploy land?" has no answer otherwise: the page and every read endpoint are
@@ -497,6 +618,11 @@ function api(db) {
       // is the nearest thing to the schema read the rest of this list uses: delete the code and
       // the capability stops being claimed, which a hand-written string would not do.
       if (typeof this.pickedQueueNos === 'function') features.push('picked-list');
+      // สรุปตามช่วงเวลา. Adds no column either, so it is claimed the same way: delete the code and
+      // the capability stops being reported, which a hand-written string would not do. Worth
+      // reporting because the page is behind the login and `/api/health` is not — "did the
+      // redeploy land?" has no answer from outside otherwise.
+      if (typeof this.periodReport === 'function') features.push('period-report');
       return features;
     },
 
